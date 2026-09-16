@@ -459,10 +459,11 @@ async function checkServerStatus() {
       return true;
     }
   } catch (e) {
-    state.isServerOnline = false;
-    elements.serverStatus.className = 'status-chip offline';
-    elements.serverStatus.querySelector('.status-text').textContent = 'Browser Mode';
+    // Server is unreachable (e.g. GitHub Pages or static hosting)
   }
+  state.isServerOnline = false;
+  elements.serverStatus.className = 'status-chip offline';
+  elements.serverStatus.querySelector('.status-text').textContent = 'Browser Mode (Client-Side)';
   return false;
 }
 
@@ -480,7 +481,47 @@ async function scanFolderViaServer(folderPath) {
       showToast('Scan Notice', data.error || 'No compliance tables found in directory', '⚠️');
     }
   } catch (err) {
-    showToast('Error', 'Failed to communicate with local server', '❌');
+    showToast('Notice', 'Local server offline. Drag & drop files or click "Example Folder" for demo.', 'ℹ️');
+  }
+}
+
+/**
+ * Loads example simulation scenarios directly in the browser via HTTP fetch.
+ * Enables zero-setup demo on GitHub Pages and static web hosting.
+ */
+async function loadExampleDataInBrowser() {
+  showToast('Loading Demo...', 'Fetching sample CBECC simulation files...', '⏳');
+  const demoFiles = [
+    { scenario: 'ap',  path: 'example_project_folder/ap/1574_GLBH_S901G_CBECC2025 - ap.htm',   name: '1574_GLBH_S901G_CBECC2025 - ap.htm' },
+    { scenario: 'ab1', path: 'example_project_folder/ab1/1574_GLBH_S901G_CBECC2025 - ab1.htm', name: '1574_GLBH_S901G_CBECC2025 - ab1.htm' },
+    { scenario: 'ab2', path: 'example_project_folder/ab2/1574_GLBH_S901G_CBECC2025 - ab2.htm', name: '1574_GLBH_S901G_CBECC2025 - ab2.htm' },
+    { scenario: 'ab3', path: 'example_project_folder/ab3/1574_GLBH_S901G_CBECC2025 - ab3.htm', name: '1574_GLBH_S901G_CBECC2025 - ab3.htm' },
+    { scenario: 'ab4', path: 'example_project_folder/ab4/1574_GLBH_S901G_CBECC2025 - ab4.htm', name: '1574_GLBH_S901G_CBECC2025 - ab4.htm' },
+  ];
+
+  try {
+    const parsedResults = [];
+    for (const item of demoFiles) {
+      const res = await fetch(item.path);
+      if (!res.ok) throw new Error(`HTTP ${res.status} loading ${item.path}`);
+      const text = await res.text();
+      const parsed = extractComplianceFromHTML(text, item.scenario);
+      if (parsed) {
+        parsed.fileBaseName = item.name;
+        parsed.scenarioName = item.scenario;
+        parsedResults.push(parsed);
+      }
+    }
+
+    if (parsedResults.length > 0) {
+      state.selectedFolderName = '1574_GLBH_S901G_CBECC2025';
+      updateCsvFilenamePreview();
+      loadParsedScenarios(parsedResults);
+      showToast('Demo Loaded', 'Loaded 5 example scenarios (ap, ab1–ab4)', '✅');
+    }
+  } catch (err) {
+    console.warn('Could not auto-fetch example files:', err);
+    showToast('Browser Mode', 'Drag & drop or select your CBECC output files or folder to begin', 'ℹ️');
   }
 }
 
@@ -1432,7 +1473,13 @@ function setupEventListeners() {
     else showToast('Path Missing', 'Please enter a valid folder path', '⚠️');
   });
 
-  elements.useDefaultBtn.addEventListener('click', () => scanFolderViaServer(''));
+  elements.useDefaultBtn.addEventListener('click', () => {
+    if (state.isServerOnline) {
+      scanFolderViaServer('');
+    } else {
+      loadExampleDataInBrowser();
+    }
+  });
 
   // Browser Folder / Files
   elements.browseFolderBtn.addEventListener('click', () => elements.browserFolderInput.click());
@@ -1517,5 +1564,10 @@ function setupEventListeners() {
 document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   const online = await checkServerStatus();
-  if (online) scanFolderViaServer('');
+  if (online) {
+    scanFolderViaServer('');
+  } else {
+    // In Browser / GitHub Pages mode: auto-load demo data so user sees live dashboard immediately
+    loadExampleDataInBrowser();
+  }
 });

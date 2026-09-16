@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>O'Brien360 Tools Suite</title>
+  <meta http-equiv="refresh" content="0; url=CBECC_result_tool/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Raleway:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ob-green: #8CBD3A;
+      --ob-blue: #4D76AD;
+      --ob-dark: #1E293B;
+      --ob-bg: #F8FAFC;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--ob-bg);
+      color: var(--ob-dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .brand-stripe {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: linear-gradient(90deg, #8CBD3A 0%, #4D76AD 33%, #62B8A4 66%, #793E6D 100%);
+    }
+    .portal-card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 520px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+    }
+    .portal-logo {
+      max-width: 220px;
+      height: auto;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-family: 'Raleway', sans-serif;
+      font-size: 24px;
+      font-weight: 800;
+      color: #0F172A;
+      margin-bottom: 8px;
+    }
+    p {
+      color: #64748B;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .btn-launch {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, var(--ob-green), #7aa82f);
+      color: #FFFFFF;
+      font-weight: 600;
+      font-size: 15px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 4px 12px rgba(140, 189, 58, 0.35);
+    }
+    .btn-launch:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(140, 189, 58, 0.45);
+    }
+    .redirect-note {
+      font-size: 12px;
+      color: #94A3B8;
+      margin-top: 16px;
+    }
+  </style>
+  <script>
+    // Immediate redirect
+    window.location.replace("CBECC_result_tool/");
+  </script>
+</head>
+<body>
+  <div class="brand-stripe"></div>
+  <div class="portal-card">
+    <img src="CBECC_result_tool/assets/ob360_logo_bar.png" alt="O'Brien360" class="portal-logo" onerror="this.style.display='none'">
+    <h1>O'Brien360 Tools</h1>
+    <p>Opening the <strong>CBECC Result Tool</strong> (Energy Performance Rating Compliance Tool)...</p>
+    <a href="CBECC_result_tool/" class="btn-launch">
+      Launch CBECC Result Tool &rarr;
+    </a>
+    <div class="redirect-note">If not redirected automatically, click the button above.</div>
+  </div>
+</body>
+</html>
