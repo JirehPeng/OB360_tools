@@ -1,0 +1,1264 @@
+/* ==========================================================================
+   O'Brien360 Brand Design System & Tokens
+   Following: OB360 Content Style Guide
+   ========================================================================== */
+
+:root {
+  /* O'Brien360 Typography Hierarchy */
+  --font-heading: 'Yu Gothic', 'Raleway', 'Lato', 'Segoe UI', -apple-system, sans-serif;
+  --font-body: 'Yu Gothic', 'Calibri', 'Inter', 'Segoe UI', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+
+  /* O'Brien360 Official Brand Palette */
+  --ob360-green: #8CBD3A;       /* Pantone 368 C - Signature Green & Accent Bar */
+  --ob360-teal: #62B8A4;        /* Pantone 3258 C - Teal / Sea Green */
+  --ob360-sage: #66A154;        /* Pantone 7489 C - Sage Green */
+  --ob360-slate-blue: #4D76AD;  /* Pantone 7685 C - Slate Blue / Heading 2 */
+  --ob360-blue: #007AC9;        /* Pantone 2144 C - Hyperlink & Title Blue */
+  --ob360-aubergine: #793E6D;   /* Pantone 2613 C - Aubergine / Heading 1 */
+  --ob360-marine: #507281;      /* Pantone 2222 C - Marine Slate */
+  --ob360-purple: #483662;      /* Pantone 2118 C - Deep Purple / Footers / Heading 3 */
+  --ob360-black: #222222;       /* Black C - Charcoal */
+
+  /* O'Brien360 Official Tinted Palette */
+  --ob360-tint-green: #CBE5A9;
+  --ob360-tint-teal: #CBEDEA;
+  --ob360-tint-sage: #CBE4CA;
+  --ob360-tint-slate: #CBDFF4;
+  --ob360-tint-blue: #CBE3F5;
+  --ob360-tint-aubergine: #CBA4D0;
+  --ob360-tint-marine: #CBE2EB;
+  --ob360-tint-purple: #CBD1E8;
+  --ob360-tint-gray: #EAEAEA;
+
+  /* Radius (O'Brien360 standard rounded corners) */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light Theme (O'Brien360 Corporate Standard) */
+body.light-theme {
+  --bg-app: #F6F8FA;
+  --bg-card: #FFFFFF;
+  --bg-surface: #F0F4F8;
+  --bg-surface-hover: #E3ECF4;
+  --bg-input: #FFFFFF;
+
+  --border-color: #D6E0EA;
+  --border-subtle: #E8EEF3;
+  --border-focus: var(--ob360-blue);
+
+  --text-primary: #1C242C;
+  --text-secondary: #4F6173;
+  --text-muted: #7E90A2;
+  --text-heading: var(--ob360-purple);
+
+  --accent-primary: var(--ob360-green);
+  --accent-secondary: var(--ob360-blue);
+  --accent-highlight: var(--ob360-aubergine);
+
+  --card-shadow: 0 4px 16px rgba(30, 45, 60, 0.06), 0 1px 3px rgba(30, 45, 60, 0.04);
+  --header-bg: rgba(255, 255, 255, 0.96);
+}
+
+/* Dark Theme */
+body.dark-theme {
+  --bg-app: #0F141C;
+  --bg-card: #161D26;
+  --bg-surface: #1E2835;
+  --bg-surface-hover: #273444;
+  --bg-input: #121820;
+
+  --border-color: #2D3A4B;
+  --border-subtle: #202A36;
+  --border-focus: var(--ob360-green);
+
+  --text-primary: #F0F4F8;
+  --text-secondary: #A0B0C0;
+  --text-muted: #6C7D8E;
+  --text-heading: #FFFFFF;
+
+  --accent-primary: var(--ob360-green);
+  --accent-secondary: var(--ob360-teal);
+  --accent-highlight: var(--ob360-blue);
+
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --header-bg: rgba(22, 29, 38, 0.95);
+}
+
+/* ==========================================================================
+   Base & Reset
+   ========================================================================== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 40px;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+/* Top Signature O'Brien360 Multi-Color Accent Stripe */
+.brand-stripe {
+  height: 5px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--ob360-green) 0%,
+    var(--ob360-green) 20%,
+    var(--ob360-teal) 20%,
+    var(--ob360-teal) 40%,
+    var(--ob360-slate-blue) 40%,
+    var(--ob360-slate-blue) 60%,
+    var(--ob360-aubergine) 60%,
+    var(--ob360-aubergine) 80%,
+    var(--ob360-purple) 80%,
+    var(--ob360-purple) 100%
+  );
+}
+
+.app-container {
+  max-width: 1380px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ==========================================================================
+   Header (O'Brien360 Brand)
+   ========================================================================== */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: var(--header-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--card-shadow);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.logo-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.brand-logo {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+}
+
+.brand-divider {
+  width: 1px;
+  height: 44px;
+  background: var(--border-color);
+}
+
+.title-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.header-title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-heading);
+  letter-spacing: -0.01em;
+}
+
+.header-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.header-tagline {
+  font-size: 0.76rem;
+  color: var(--ob360-green);
+  font-style: italic;
+  font-weight: 600;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-chip.online .status-dot {
+  background-color: var(--ob360-green);
+  box-shadow: 0 0 6px var(--ob360-green);
+}
+
+.status-chip.offline .status-dot {
+  background-color: var(--ob360-blue);
+}
+
+/* ==========================================================================
+   Cards & Layout Components
+   ========================================================================== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 20px 24px;
+  box-shadow: var(--card-shadow);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+  gap: 16px;
+}
+
+.card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-title-group h2 {
+  font-family: var(--font-heading);
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.card-step-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--ob360-green);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.quick-tips {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.quick-tips strong {
+  color: var(--ob360-purple);
+}
+
+body.dark-theme .quick-tips strong {
+  color: var(--ob360-teal);
+}
+
+/* ==========================================================================
+   Folder Ingestion Section
+   ========================================================================== */
+.source-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: 18px;
+}
+
+@media (max-width: 900px) {
+  .source-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.source-box {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.input-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ob360-purple);
+  margin-bottom: 8px;
+}
+
+body.dark-theme .input-label {
+  color: var(--ob360-teal);
+}
+
+.input-action-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.text-input {
+  flex: 1;
+  min-width: 220px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.text-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(0, 122, 201, 0.15);
+}
+
+.drop-box {
+  border: 2px dashed var(--border-color);
+  background: var(--bg-surface);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.drop-box:hover, .drop-box.dragover {
+  border-color: var(--ob360-green);
+  background-color: var(--bg-surface-hover);
+}
+
+.drop-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.drop-icon {
+  color: var(--ob360-green);
+}
+
+.drop-text {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.drop-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+/* Scenarios Pill Badges List */
+.scenarios-container {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scenarios-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.84rem;
+}
+
+.scenarios-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.badge-accent {
+  background: var(--ob360-tint-green);
+  color: #2D5A12;
+  border: 1px solid #A4D178;
+}
+
+body.dark-theme .badge-accent {
+  background: rgba(140, 189, 58, 0.2);
+  color: var(--ob360-green);
+  border-color: rgba(140, 189, 58, 0.4);
+}
+
+.badge-primary {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.scenarios-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scenario-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg-surface);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.scenario-pill:hover {
+  border-color: var(--ob360-green);
+  background: var(--bg-surface-hover);
+}
+
+.scenario-pill.active {
+  background: var(--ob360-tint-green);
+  border-color: var(--ob360-green);
+  color: #1F3F0D;
+  font-weight: 700;
+}
+
+body.dark-theme .scenario-pill.active {
+  background: rgba(140, 189, 58, 0.18);
+  border-color: var(--ob360-green);
+  color: var(--ob360-green);
+}
+
+.scenario-pill .pill-check {
+  display: inline-flex;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1.5px solid var(--text-muted);
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+}
+
+.scenario-pill.active .pill-check {
+  border-color: var(--ob360-green);
+  background: var(--ob360-green);
+  color: #FFFFFF;
+}
+
+/* Baseline Average Pill Style */
+.scenario-pill.pill-avg {
+  border-color: #4D76AD;
+  background: rgba(77, 118, 173, 0.05);
+}
+
+.scenario-pill.pill-avg:hover {
+  border-color: #385E92;
+  background: rgba(77, 118, 173, 0.12);
+}
+
+.scenario-pill.pill-avg.active {
+  background: rgba(77, 118, 173, 0.15);
+  border-color: #4D76AD;
+  color: #213A5C;
+  font-weight: 700;
+}
+
+.scenario-pill.pill-avg.active .pill-check {
+  border-color: #4D76AD;
+  background: #4D76AD;
+  color: #FFFFFF;
+}
+
+body.dark-theme .scenario-pill.pill-avg {
+  border-color: #4D76AD;
+  background: rgba(77, 118, 173, 0.1);
+}
+
+body.dark-theme .scenario-pill.pill-avg.active {
+  background: rgba(77, 118, 173, 0.28);
+  border-color: #6C97D1;
+  color: #B5D2FC;
+}
+
+body.dark-theme .scenario-pill.pill-avg.active .pill-check {
+  border-color: #6C97D1;
+  background: #4D76AD;
+}
+
+.pill-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  font-family: var(--font-body);
+  border-radius: var(--radius-full);
+  background: #4D76AD;
+  color: #FFFFFF;
+  font-weight: 700;
+  margin-left: 2px;
+  letter-spacing: 0.02em;
+}
+
+.avg-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.avg-checkbox-label .avg-label-text {
+  color: var(--ob360-slate-blue);
+  font-weight: 700;
+}
+
+body.dark-theme .avg-checkbox-label .avg-label-text {
+  color: #7CA8E8;
+}
+
+/* ==========================================================================
+   Buttons & Controls (O'Brien360 Style)
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 15px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--ob360-green);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(140, 189, 58, 0.3);
+}
+
+.btn-primary:hover {
+  background: #7AA830;
+  box-shadow: 0 4px 12px rgba(140, 189, 58, 0.4);
+}
+
+.btn-secondary {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--text-muted);
+}
+
+.btn-accent {
+  background: var(--ob360-purple);
+  color: #FFFFFF;
+}
+
+.btn-accent:hover {
+  background: #392B4F;
+}
+
+.btn-highlight {
+  box-shadow: 0 2px 10px rgba(72, 54, 98, 0.25);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.btn-outline:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--ob360-slate-blue);
+}
+
+.btn-sm {
+  padding: 5px 11px;
+  font-size: 0.78rem;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-icon:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--ob360-green);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--ob360-blue);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.btn-link:hover {
+  color: var(--ob360-purple);
+}
+
+/* Segmented Controls */
+.segmented-control {
+  display: inline-flex;
+  background: var(--bg-surface);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.seg-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.seg-btn:hover {
+  color: var(--text-primary);
+}
+
+.seg-btn.active {
+  background: #FFFFFF;
+  color: var(--ob360-purple);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 700;
+}
+
+body.dark-theme .seg-btn.active {
+  background: var(--bg-surface-hover);
+  color: var(--ob360-green);
+}
+
+/* Dropdowns */
+.select-dropdown {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 7px 11px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.select-dropdown:focus {
+  border-color: var(--border-focus);
+}
+
+/* ==========================================================================
+   Dashboard Toolbar & Options Strip
+   ========================================================================== */
+.controls-card {
+  padding: 16px 20px;
+}
+
+.controls-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.control-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.options-strip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.custom-checkbox input {
+  accent-color: var(--ob360-green);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* Category Filter Popover */
+.category-filter-wrapper {
+  position: relative;
+}
+
+.category-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 310px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  box-shadow: var(--card-shadow);
+  z-index: 100;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.category-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   Metrics Grid Cards
+   ========================================================================== */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  border-left: 4px solid var(--ob360-green);
+}
+
+.metric-card:nth-child(2) {
+  border-left-color: var(--ob360-slate-blue);
+}
+
+.metric-card:nth-child(3) {
+  border-left-color: var(--ob360-aubergine);
+}
+
+.metric-card:nth-child(4) {
+  border-left-color: var(--ob360-teal);
+}
+
+.metric-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metric-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+}
+
+.metric-icon {
+  font-size: 1.1rem;
+}
+
+.metric-value {
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text-heading);
+  margin: 8px 0 3px 0;
+  letter-spacing: -0.01em;
+}
+
+.metric-meta {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   Chart Canvas Section
+   ========================================================================== */
+.chart-card {
+  padding: 20px 22px;
+}
+
+.chart-card-header {
+  margin-bottom: 14px;
+}
+
+.chart-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-header-left h3 {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 420px;
+}
+
+/* ==========================================================================
+   Table & Excel Integration Section
+   ========================================================================== */
+.table-card {
+  padding: 20px 22px;
+}
+
+.table-header-left h3 {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.table-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.table-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  margin-top: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  text-align: left;
+}
+
+.data-table th, .data-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table th {
+  background: var(--bg-surface);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--ob360-purple);
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+body.dark-theme .data-table th {
+  color: var(--ob360-teal);
+}
+
+.data-table td {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.data-table td.cat-col {
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.data-table td.num-col, .data-table th.num-col {
+  text-align: right;
+}
+
+.data-table tr:hover td {
+  background-color: var(--bg-surface-hover);
+}
+
+.data-table tfoot tr td {
+  font-weight: 700;
+  background: var(--bg-surface);
+  border-top: 2px solid var(--ob360-green);
+  border-bottom: none;
+  color: var(--text-heading);
+}
+
+.data-table .delta-pos {
+  color: #C0392B;
+  font-weight: 600;
+}
+
+.data-table .delta-neg {
+  color: #27AE60;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Footer (O'Brien360 Style)
+   ========================================================================== */
+.app-footer {
+  margin-top: 10px;
+  border-top: 2px solid var(--ob360-purple);
+  padding-top: 14px;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+.footer-address strong {
+  color: var(--ob360-purple);
+}
+
+body.dark-theme .footer-address strong {
+  color: var(--ob360-teal);
+}
+
+.footer-address a {
+  color: var(--ob360-blue);
+  text-decoration: none;
+}
+
+.footer-address a:hover {
+  text-decoration: underline;
+}
+
+.footer-tagline {
+  margin-top: 3px;
+  color: var(--ob360-green);
+  font-style: italic;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Toast Notification
+   ========================================================================== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-card);
+  border: 1px solid var(--ob360-green);
+  border-radius: var(--radius-md);
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), 0 0 10px rgba(140, 189, 58, 0.2);
+  z-index: 1000;
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 360px;
+}
+
+.toast-icon {
+  font-size: 1.3rem;
+}
+
+.toast-body strong {
+  display: block;
+  font-size: 0.86rem;
+  color: var(--text-heading);
+}
+
+.toast-body p {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Utility classes */
+.hidden {
+  display: none !important;
+}
+
+.divider {
+  color: var(--border-color);
+}
+
+/* ==========================================================================
+   Fixed-Column Compliance Table: Two-Level Header & Gas Dash Cells
+   ========================================================================== */
+
+.data-table .scenario-group-header {
+  text-align: center;
+  font-family: var(--font-heading);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 10px 8px 8px;
+  border-left: 2px solid var(--border-color);
+}
+
+.data-table .sub-col {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  padding: 6px 4px;
+  border-left: 1px solid var(--border-color);
+  white-space: nowrap;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  line-height: 1.3;
+}
+
+.data-table tbody td.num-col,
+.data-table tfoot td.num-col {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 6px 10px;
+  border-left: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.data-table .gas-col {
+  background: rgba(230, 126, 34, 0.04);
+}
+
+.data-table .elec-only {
+  color: var(--text-muted, #aaa);
+  background: var(--bg-surface);
+  font-style: italic;
+  text-align: center;
+  font-family: var(--font-body);
+}
+
+.data-table tbody tr:hover .elec-only {
+  background: var(--bg-surface);
+}
+
+/* ==========================================================================
+   CSV Log Export Card
+   ========================================================================== */
+
+.csv-export-card {
+  margin-top: 0;
+}
+
+.csv-export-card .card-header {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.csv-export-card .card-header .table-subtitle {
+  margin-left: 0;
+}
+
+.csv-export-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 20px 0 16px;
+  flex-wrap: wrap;
+}
+
+.csv-filename-info {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.csv-filename-info code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: var(--bg-surface);
+  color: var(--ob360-slate-blue);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-color);
+}
+
+body.dark-theme .csv-filename-info code {
+  color: #8EBAF7;
+  background: rgba(77, 118, 173, 0.2);
+}
+
+.csv-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.csv-input {
+  width: 180px;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+}
+
+.csv-export-btn {
+  height: 40px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.csv-note {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--ob360-green);
+  line-height: 1.5;
+}
+
+.csv-note code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: var(--bg-card);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-color);
+  color: var(--ob360-slate-blue);
+}

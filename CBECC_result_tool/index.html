@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>O'Brien360 | Energy Performance Rating Compliance Tool</title>
+  <!-- Google Fonts: Raleway, Lato, Inter, JetBrains Mono (with Yu Gothic fallbacks) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lato:wght@300;400;700&family=Raleway:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- SheetJS for Native Excel (.xlsx) Export (offline local bundle) -->
+  <script src="assets/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body class="light-theme">
+  <!-- Top O'Brien360 Multi-color Brand Accent Stripe -->
+  <div class="brand-stripe"></div>
+
+  <div class="app-container">
+    
+    <!-- Top Header with O'Brien360 Branding -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="logo-wrapper">
+          <img src="assets/ob360_logo_bar.png" alt="O'Brien360" class="brand-logo" />
+        </div>
+        <div class="brand-divider"></div>
+        <div class="title-meta">
+          <h1 class="header-title">Energy Performance Rating Compliance Tool</h1>
+          <p class="header-subtitle">EAp2-4/5 Performance Rating Method Compliance Extraction & Analysis</p>
+          <span class="header-tagline">Sustainability Expertise for the Built Environment</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div id="server-status" class="status-chip offline" title="Server Status">
+          <span class="status-dot"></span>
+          <span class="status-text">Browser Mode</span>
+        </div>
+        <button id="theme-toggle-btn" class="btn-icon" title="Toggle Light/Dark Theme">
+          <span id="theme-icon">🌙</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Ingestion & Folder Selector Section -->
+    <section class="card source-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <span class="card-step-badge">1</span>
+          <h2>Select Project Folder & Scenarios</h2>
+        </div>
+        <div class="quick-tips">
+          <span>Target Scenarios: <strong>ab1, ab2, ab3, ab4, ap</strong></span>
+        </div>
+      </div>
+
+      <div class="source-grid">
+        <!-- Direct Path Scan Form (Local Server) -->
+        <div class="source-box path-box">
+          <label for="folder-path-input" class="input-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            Project Directory Path
+          </label>
+          <div class="input-action-group">
+            <input type="text" id="folder-path-input" class="text-input" placeholder="e.g. C:\Local\AntiGravityProjects\OB360_tools\CBECC_result_tool\example_project_folder" />
+            <button id="scan-path-btn" class="btn btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              Scan Folder
+            </button>
+            <button id="use-default-btn" class="btn btn-secondary" title="Load example_project_folder">
+              Example Folder
+            </button>
+          </div>
+        </div>
+
+        <!-- Browser Directory Picker & Drag-and-drop -->
+        <div class="source-box drop-box" id="drop-zone">
+          <input type="file" id="browser-folder-input" webkitdirectory directory multiple class="hidden-file-input" />
+          <input type="file" id="browser-files-input" multiple accept=".htm,.html" class="hidden-file-input" />
+          <div class="drop-content">
+            <div class="drop-icon">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <div class="drop-text">
+              <strong>Click to Browse</strong> or Drag & Drop Project Folder
+            </div>
+            <div class="drop-actions">
+              <button id="browse-folder-btn" class="btn btn-sm btn-outline">Choose Folder</button>
+              <button id="browse-files-btn" class="btn btn-sm btn-outline">Choose Files</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- File Badges / Scenarios List -->
+      <div id="scenarios-container" class="scenarios-container hidden">
+        <div class="scenarios-header">
+          <div class="scenarios-summary">
+            <strong>Active Scenarios:</strong>
+            <span id="scenarios-count-badge" class="badge badge-accent">5 Scenarios</span>
+          </div>
+          <div class="scenarios-bulk-actions">
+            <label class="custom-checkbox avg-checkbox-label" title="Calculate and display the average of the 4 baseline scenarios (ab1-ab4)">
+              <input type="checkbox" id="average-baselines-toggle" checked />
+              <span class="checkmark"></span>
+              <span class="avg-label-text">Average Baselines (ab1–ab4)</span>
+            </label>
+            <span class="divider">|</span>
+            <button id="select-all-scenarios-btn" class="btn-link">Select All</button>
+            <span class="divider">|</span>
+            <button id="deselect-all-scenarios-btn" class="btn-link">Reset</button>
+          </div>
+        </div>
+        <div id="scenarios-pill-list" class="scenarios-pill-list"></div>
+      </div>
+    </section>
+
+    <!-- Main Dashboard Area -->
+    <main id="dashboard-area" class="dashboard-area hidden">
+      
+      <!-- Interactive Controls Toolbar -->
+      <section class="card controls-card">
+        <div class="controls-toolbar">
+          
+          <!-- View Mode -->
+          <div class="control-group">
+            <label class="control-label">View Mode</label>
+            <div class="segmented-control" id="view-mode-control">
+              <button class="seg-btn active" data-value="compare">Side-by-Side Comparison</button>
+              <button class="seg-btn" data-value="single">Single Scenario</button>
+              <button class="seg-btn" data-value="variance">Baseline Delta (%)</button>
+            </div>
+          </div>
+
+          <!-- Energy Unit Switcher -->
+          <div class="control-group">
+            <label class="control-label">Energy Unit</label>
+            <div class="segmented-control unit-control" id="unit-control">
+              <button class="seg-btn active" data-unit="kBtu">kBtu (Total Combined)</button>
+              <button class="seg-btn" data-unit="kWh">kWh (Electricity)</button>
+              <button class="seg-btn" data-unit="therm">therm (Natural Gas)</button>
+            </div>
+          </div>
+
+          <!-- Fuel Breakdown / Type -->
+          <div class="control-group">
+            <label class="control-label">Fuel Type</label>
+            <select id="fuel-select" class="select-dropdown">
+              <option value="both" selected>Total Energy (Electricity + Gas)</option>
+              <option value="electricity">Electricity Only [kWh / converted]</option>
+              <option value="gas">Natural Gas Only [therm / converted]</option>
+              <option value="split">Fuel Breakdown (Stacked Elec & Gas)</option>
+            </select>
+          </div>
+
+          <!-- Chart Type Selector -->
+          <div class="control-group">
+            <label class="control-label">Chart Type</label>
+            <select id="chart-type-select" class="select-dropdown">
+              <option value="bar" selected>📊 Grouped Bar Chart</option>
+              <option value="stacked-bar">🥞 Stacked Bar Chart</option>
+              <option value="doughnut">🍩 Donut Breakdown</option>
+              <option value="horizontalBar">📶 Horizontal Ranked Bar</option>
+              <option value="radar">🕸️ Energy Profile (Radar)</option>
+            </select>
+          </div>
+
+          <!-- Single Scenario / Baseline Selectors -->
+          <div class="control-group hidden" id="single-scenario-group">
+            <label class="control-label">Active Scenario</label>
+            <select id="single-scenario-select" class="select-dropdown"></select>
+          </div>
+
+          <div class="control-group hidden" id="baseline-scenario-group">
+            <label class="control-label">Baseline Reference</label>
+            <select id="baseline-scenario-select" class="select-dropdown"></select>
+          </div>
+
+        </div>
+
+        <!-- Filter & Display Options Strip -->
+        <div class="options-strip">
+          <div class="checkbox-group">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="clean-labels-toggle" checked />
+              <span class="checkmark"></span>
+              Clean Category Names
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="hide-zeroes-toggle" checked />
+              <span class="checkmark"></span>
+              Hide Zero Rows (Chart Only)
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Metric Highlights Cards -->
+      <section class="metrics-grid">
+        <div class="metric-card card">
+          <div class="metric-header">
+            <span class="metric-label">Total Energy (<span class="unit-label">kBtu</span>)</span>
+            <div class="metric-icon total-icon">⚡</div>
+          </div>
+          <div class="metric-value" id="metric-total-energy">-</div>
+          <div class="metric-meta" id="metric-total-subtitle">Selected scenarios average</div>
+        </div>
+
+        <div class="metric-card card">
+          <div class="metric-header">
+            <span class="metric-label">Electricity Share</span>
+            <div class="metric-icon elec-icon">💡</div>
+          </div>
+          <div class="metric-value" id="metric-elec-val">-</div>
+          <div class="metric-meta" id="metric-elec-percent">- % of total energy</div>
+        </div>
+
+        <div class="metric-card card">
+          <div class="metric-header">
+            <span class="metric-label">Natural Gas Share</span>
+            <div class="metric-icon gas-icon">🔥</div>
+          </div>
+          <div class="metric-value" id="metric-gas-val">-</div>
+          <div class="metric-meta" id="metric-gas-percent">- % of total energy</div>
+        </div>
+
+        <div class="metric-card card">
+          <div class="metric-header">
+            <span class="metric-label">Dominant End-Use</span>
+            <div class="metric-icon peak-icon">🏆</div>
+          </div>
+          <div class="metric-value" id="metric-peak-category">-</div>
+          <div class="metric-meta" id="metric-peak-val">-</div>
+        </div>
+      </section>
+
+      <!-- Interactive Chart Section -->
+      <section class="card chart-card">
+        <div class="card-header chart-card-header">
+          <div class="chart-header-left">
+            <h3 id="chart-main-title">Energy Consumption Comparison by Category</h3>
+            <span id="chart-unit-badge" class="badge badge-primary">Units: kBtu</span>
+          </div>
+          <div class="chart-actions">
+            <button id="download-chart-btn" class="btn btn-sm btn-outline" title="Save Chart as PNG Image">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Export Chart Image
+            </button>
+          </div>
+        </div>
+        <div class="chart-container" id="chart-container-wrapper">
+          <canvas id="energy-chart"></canvas>
+        </div>
+      </section>
+
+      <!-- Data Table & Excel Export Section -->
+      <section class="card table-card">
+        <div class="card-header table-card-header">
+          <div class="table-header-left">
+            <h3 id="table-title">EAp2-4/5 Performance Rating Method Compliance</h3>
+            <span class="table-subtitle">Fixed columns — all 15 end-use categories · Electricity [kWh, W] · Natural Gas [therm, Btu/h] · ap shown first</span>
+          </div>
+          <div class="table-actions">
+            <button id="copy-excel-btn" class="btn btn-accent btn-highlight" title="Copy formatted table data directly to clipboard">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              Copy Table for Excel (TSV)
+            </button>
+            <button id="export-excel-btn" class="btn btn-primary" title="Download as formatted Excel spreadsheet (.xlsx)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              Download Excel (.xlsx)
+            </button>
+          </div>
+        </div>
+
+        <!-- Rendered Table Container -->
+        <div class="table-wrapper">
+          <table id="compliance-data-table" class="data-table">
+            <thead id="table-head"></thead>
+            <tbody id="table-body"></tbody>
+            <tfoot id="table-foot"></tfoot>
+          </table>
+        </div>
+      </section>
+
+      <!-- CSV Log Export Section -->
+      <section class="card csv-export-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-step-badge">📁</span>
+            <h3>Export to CSV Log</h3>
+          </div>
+          <div class="csv-filename-info">
+            <span>Target File: </span>
+            <code id="csv-filename-preview">example_project_folder - Results.csv</code>
+          </div>
+        </div>
+        <div class="csv-export-form">
+          <div class="csv-field-group">
+            <label for="csv-run-id" class="input-label">Model Run ID</label>
+            <input type="text" id="csv-run-id" class="text-input csv-input" placeholder="e.g. Run_01" value="Run_01" />
+          </div>
+          <div class="csv-field-group">
+            <label for="csv-revision" class="input-label">Revision #</label>
+            <input type="text" id="csv-revision" class="text-input csv-input" placeholder="e.g. r33" value="r33" />
+          </div>
+          <div class="csv-field-group">
+            <label for="csv-export-scope" class="input-label">Scenarios to Export</label>
+            <select id="csv-export-scope" class="select-dropdown">
+              <option value="all" selected>All Scenarios (ap, ab1–ab4 &amp; Avg)</option>
+              <option value="active">Active Selected Only</option>
+            </select>
+          </div>
+          <button id="export-csv-btn" class="btn btn-primary csv-export-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export CSV
+          </button>
+        </div>
+        <p class="csv-note">File name is automatically based on the project folder (ignoring trailing <code>- run</code> or <code>- batch</code> and adding <code>- Results.csv</code>). Formatted with 2 header rows and 67 columns per scenario row for pasting into compliance logs.</p>
+      </section>
+
+    </main>
+
+    <!-- O'Brien360 Official Brand Footer -->
+    <footer class="app-footer">
+      <div class="footer-stripe"></div>
+      <div class="footer-content">
+        <p class="footer-address">
+          <strong>O'Brien360</strong> &nbsp;|&nbsp; 710 Second Avenue, Suite 925 &nbsp;|&nbsp; Seattle, WA 98104 &nbsp;|&nbsp; 206-621-8626 &nbsp;|&nbsp; <a href="https://www.obrien360.com" target="_blank" rel="noopener noreferrer">www.obrien360.com</a>
+        </p>
+        <p class="footer-tagline"><em>Sustainability Expertise for the Built Environment</em></p>
+      </div>
+    </footer>
+
+    <!-- Floating Toast Notification for Excel Copy -->
+    <div id="toast" class="toast hidden">
+      <div class="toast-icon">✅</div>
+      <div class="toast-body">
+        <strong id="toast-title">Copied to Clipboard!</strong>
+        <p id="toast-message">Data formatted for Excel. Press Ctrl+V in your spreadsheet.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
