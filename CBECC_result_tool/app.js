@@ -201,6 +201,15 @@ const state = {
   averageBaselines: true,  // Calculate and display average of ab1-ab4 (default true)
   selectedFolderName: '',  // Current project folder name
 
+  // Mode 1 & 3: CSV and Append State
+  loadedCsvRows: [],         // Array of raw CSV rows (header 1, header 2, data rows)
+  baseCsvFilename: '',       // Filename of loaded base CSV
+  isAppendedData: false,     // True if currently displaying appended data
+  method3BaseCsvRows: null,  // Base CSV rows for Method 3
+  method3BaseCsvText: '',    // Base CSV raw text for Method 3
+  method3BaseFilename: '',   // Base CSV filename for Method 3
+  method3NewScenarios: [],   // Extracted HTM scenarios pending append
+
   viewMode: 'compare',     // 'compare' | 'single' | 'variance'
   energyUnit: 'kBtu',       // 'kBtu' | 'kWh' | 'therm'
   fuelType: 'both',        // 'both' | 'electricity' | 'gas' | 'split'
@@ -221,15 +230,47 @@ const elements = {
   themeIcon: document.getElementById('theme-icon'),
   serverStatus: document.getElementById('server-status'),
 
-  folderPathInput: document.getElementById('folder-path-input'),
-  scanPathBtn: document.getElementById('scan-path-btn'),
-  useDefaultBtn: document.getElementById('use-default-btn'),
+  // Ingestion Mode Tabs
+  tabBtn1: document.getElementById('tab-btn-1'),
+  tabBtn2: document.getElementById('tab-btn-2'),
+  tabBtn3: document.getElementById('tab-btn-3'),
+  tabPane1: document.getElementById('tab-pane-1'),
+  tabPane2: document.getElementById('tab-pane-2'),
+  tabPane3: document.getElementById('tab-pane-3'),
 
-  dropZone: document.getElementById('drop-zone'),
+  // Mode 1: Results CSV
+  dropZoneCsv: document.getElementById('drop-zone-csv'),
+  browserCsvInput: document.getElementById('browser-csv-input'),
+  browseCsvBtn: document.getElementById('browse-csv-btn'),
+  loadSampleCsvBtn: document.getElementById('load-sample-csv-btn'),
+  csvStatusBadge: document.getElementById('csv-status-badge'),
+
+  // Mode 2: Model Folder
+  dropZoneFolder: document.getElementById('drop-zone-folder'),
   browserFolderInput: document.getElementById('browser-folder-input'),
   browserFilesInput: document.getElementById('browser-files-input'),
   browseFolderBtn: document.getElementById('browse-folder-btn'),
   browseFilesBtn: document.getElementById('browse-files-btn'),
+  loadSampleFolderBtn: document.getElementById('load-sample-folder-btn'),
+  folderStatusBadge: document.getElementById('folder-status-badge'),
+
+  // Mode 3: Append
+  appendCsvInput: document.getElementById('append-csv-input'),
+  appendDropCsv: document.getElementById('append-drop-csv'),
+  appendCsvStatus: document.getElementById('append-csv-status'),
+  appendBrowseCsvBtn: document.getElementById('append-browse-csv-btn'),
+  appendSampleCsvBtn: document.getElementById('append-sample-csv-btn'),
+  appendFolderInput: document.getElementById('append-folder-input'),
+  appendFilesInput: document.getElementById('append-files-input'),
+  appendDropFolder: document.getElementById('append-drop-folder'),
+  appendFolderStatus: document.getElementById('append-folder-status'),
+  appendBrowseFolderBtn: document.getElementById('append-browse-folder-btn'),
+  appendBrowseFilesBtn: document.getElementById('append-browse-files-btn'),
+  appendSampleFolderBtn: document.getElementById('append-sample-folder-btn'),
+  appendRunId: document.getElementById('append-run-id'),
+  appendRevision: document.getElementById('append-revision'),
+  executeAppendBtn: document.getElementById('execute-append-btn'),
+  appendStatusBadge: document.getElementById('append-status-badge'),
 
   scenariosContainer: document.getElementById('scenarios-container'),
   scenariosCountBadge: document.getElementById('scenarios-count-badge'),
@@ -442,91 +483,262 @@ function getCategoryEnergyValue(catData, fuel = state.fuelType, unit = state.ene
 }
 
 // =============================================================================
-// Server Connectivity & Folder Scanning
+// Tab Switching
 // =============================================================================
 
-async function checkServerStatus() {
-  try {
-    const res = await fetch('/api/default-folder', { method: 'GET' });
-    if (res.ok) {
-      const data = await res.json();
-      state.isServerOnline = true;
-      elements.serverStatus.className = 'status-chip online';
-      elements.serverStatus.querySelector('.status-text').textContent = 'Local Server Active';
-      if (data.path && !elements.folderPathInput.value) {
-        elements.folderPathInput.value = data.path;
-      }
-      return true;
-    }
-  } catch (e) {
-    // Server is unreachable (e.g. GitHub Pages or static hosting)
-  }
-  state.isServerOnline = false;
-  elements.serverStatus.className = 'status-chip offline';
-  elements.serverStatus.querySelector('.status-text').textContent = 'Browser Mode (Client-Side)';
-  return false;
-}
-
-async function scanFolderViaServer(folderPath) {
-  try {
-    showToast('Scanning Folder...', 'Analyzing HTM files and extracting EAp2-4/5 tables', '⏳');
-    const res = await fetch(`/api/scan?folder=${encodeURIComponent(folderPath)}`);
-    const data = await res.json();
-    if (data.success && data.files && data.files.length > 0) {
-      state.selectedFolderName = data.folder || folderPath || elements.folderPathInput.value;
-      updateCsvFilenamePreview();
-      loadParsedScenarios(data.files);
-      showToast('Scan Complete', `Loaded ${data.files.length} scenarios from ${folderPath || 'default folder'}`, '✅');
-    } else {
-      showToast('Scan Notice', data.error || 'No compliance tables found in directory', '⚠️');
-    }
-  } catch (err) {
-    showToast('Notice', 'Local server offline. Drag & drop files or click "Example Folder" for demo.', 'ℹ️');
-  }
-}
-
-/**
- * Loads example simulation scenarios directly in the browser via HTTP fetch.
- * Enables zero-setup demo on GitHub Pages and static web hosting.
- */
-async function loadExampleDataInBrowser() {
-  showToast('Loading Demo...', 'Fetching sample CBECC simulation files...', '⏳');
-  const demoFiles = [
-    { scenario: 'ap',  path: 'example_project_folder/ap/1574_GLBH_S901G_CBECC2025 - ap.htm',   name: '1574_GLBH_S901G_CBECC2025 - ap.htm' },
-    { scenario: 'ab1', path: 'example_project_folder/ab1/1574_GLBH_S901G_CBECC2025 - ab1.htm', name: '1574_GLBH_S901G_CBECC2025 - ab1.htm' },
-    { scenario: 'ab2', path: 'example_project_folder/ab2/1574_GLBH_S901G_CBECC2025 - ab2.htm', name: '1574_GLBH_S901G_CBECC2025 - ab2.htm' },
-    { scenario: 'ab3', path: 'example_project_folder/ab3/1574_GLBH_S901G_CBECC2025 - ab3.htm', name: '1574_GLBH_S901G_CBECC2025 - ab3.htm' },
-    { scenario: 'ab4', path: 'example_project_folder/ab4/1574_GLBH_S901G_CBECC2025 - ab4.htm', name: '1574_GLBH_S901G_CBECC2025 - ab4.htm' },
+function setupTabs() {
+  const tabs = [
+    { btn: elements.tabBtn1, pane: elements.tabPane1 },
+    { btn: elements.tabBtn2, pane: elements.tabPane2 },
+    { btn: elements.tabBtn3, pane: elements.tabPane3 },
   ];
 
-  try {
-    const parsedResults = [];
-    for (const item of demoFiles) {
-      const res = await fetch(item.path);
-      if (!res.ok) throw new Error(`HTTP ${res.status} loading ${item.path}`);
-      const text = await res.text();
-      const parsed = extractComplianceFromHTML(text, item.scenario);
-      if (parsed) {
-        parsed.fileBaseName = item.name;
-        parsed.scenarioName = item.scenario;
-        parsedResults.push(parsed);
+  tabs.forEach(t => {
+    if (!t.btn || !t.pane) return;
+    t.btn.addEventListener('click', () => {
+      tabs.forEach(other => {
+        if (other.btn) other.btn.classList.remove('active');
+        if (other.pane) other.pane.classList.add('hidden');
+      });
+      t.btn.classList.add('active');
+      t.pane.classList.remove('hidden');
+    });
+  });
+}
+
+// =============================================================================
+// CSV Parsing: Standard 67-Column Results.csv
+// =============================================================================
+
+function parseCsvToRows(text) {
+  const rows = [];
+  let currentRow = [];
+  let currentCell = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    const nextCh = text[i + 1];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (nextCh === '"') {
+          currentCell += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        currentCell += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ',') {
+        currentRow.push(currentCell.trim());
+        currentCell = '';
+      } else if (ch === '\r') {
+        if (nextCh === '\n') i++;
+        currentRow.push(currentCell.trim());
+        rows.push(currentRow);
+        currentRow = [];
+        currentCell = '';
+      } else if (ch === '\n') {
+        currentRow.push(currentCell.trim());
+        rows.push(currentRow);
+        currentRow = [];
+        currentCell = '';
+      } else {
+        currentCell += ch;
       }
     }
+  }
 
-    if (parsedResults.length > 0) {
-      state.selectedFolderName = '1574_GLBH_S901G_CBECC2025';
-      updateCsvFilenamePreview();
-      loadParsedScenarios(parsedResults);
-      showToast('Demo Loaded', 'Loaded 5 example scenarios (ap, ab1–ab4)', '✅');
-    }
+  if (currentCell.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentCell.trim());
+    rows.push(currentRow);
+  }
+
+  return rows.filter(r => r.some(cell => cell.length > 0));
+}
+
+function parseComplianceCSV(csvText, filename = '') {
+  const rows = parseCsvToRows(csvText);
+  if (rows.length < 3) {
+    return { success: false, error: 'CSV file must have 2 header rows and at least 1 data row.' };
+  }
+
+  const scenarios = [];
+
+  for (let i = 2; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length < 3 || !row[2]) continue;
+
+    const runId = row[0] || 'Run_01';
+    const rev = row[1] || 'Rev.0';
+    const scenarioName = row[2].trim();
+
+    const categoryMap = {};
+    FIXED_CATEGORIES.forEach(fc => {
+      categoryMap[fc.raw] = {
+        rawCategory: fc.raw,
+        isTotal: false,
+        elecKwh: 0,
+        elecDemW: 0,
+        gasTherm: 0,
+        gasDemBtuh: 0,
+        elecKbtu: 0,
+        gasKbtu: 0,
+        totalKbtu: 0
+      };
+    });
+
+    CSV_ELECS.forEach((catRaw, idx) => {
+      const kwhCol = 3 + (idx * 2);
+      const wCol   = 4 + (idx * 2);
+      const kwh = kwhCol < row.length ? parseNumber(row[kwhCol]) : 0;
+      const w   = wCol < row.length ? parseNumber(row[wCol]) : 0;
+      if (!categoryMap[catRaw]) {
+        categoryMap[catRaw] = { rawCategory: catRaw, isTotal: false, elecKwh: 0, elecDemW: 0, gasTherm: 0, gasDemBtuh: 0, elecKbtu: 0, gasKbtu: 0, totalKbtu: 0 };
+      }
+      categoryMap[catRaw].elecKwh = kwh;
+      categoryMap[catRaw].elecDemW = w;
+    });
+
+    CSV_GASES.forEach((catRaw, idx) => {
+      const thermCol = 55 + (idx * 2);
+      const btuhCol  = 56 + (idx * 2);
+      const therm = thermCol < row.length ? parseNumber(row[thermCol]) : 0;
+      const btuh  = btuhCol < row.length ? parseNumber(row[btuhCol]) : 0;
+      if (!categoryMap[catRaw]) {
+        categoryMap[catRaw] = { rawCategory: catRaw, isTotal: false, elecKwh: 0, elecDemW: 0, gasTherm: 0, gasDemBtuh: 0, elecKbtu: 0, gasKbtu: 0, totalKbtu: 0 };
+      }
+      categoryMap[catRaw].gasTherm = therm;
+      categoryMap[catRaw].gasDemBtuh = btuh;
+    });
+
+    let totalElecKwh = 0;
+    let totalGasTherm = 0;
+    Object.values(categoryMap).forEach(c => {
+      c.elecKbtu = c.elecKwh * CONVERSIONS.KWH_TO_KBTU;
+      c.gasKbtu  = c.gasTherm * CONVERSIONS.THERM_TO_KBTU;
+      c.totalKbtu = c.elecKbtu + c.gasKbtu;
+      totalElecKwh += c.elecKwh;
+      totalGasTherm += c.gasTherm;
+    });
+
+    const totalElecKbtu = totalElecKwh * CONVERSIONS.KWH_TO_KBTU;
+    const totalGasKbtu  = totalGasTherm * CONVERSIONS.THERM_TO_KBTU;
+    const grandTotalKbtu = totalElecKbtu + totalGasKbtu;
+
+    const scObj = {
+      scenarioName,
+      sourceName: `${scenarioName} (${runId})`,
+      runId,
+      revision: rev,
+      fileBaseName: `${scenarioName}.csv`,
+      categoryMap,
+      summary: {
+        totalElectricity_kWh: totalElecKwh,
+        totalNaturalGas_therm: totalGasTherm,
+        totalElectricity_kBtu: totalElecKbtu,
+        totalNaturalGas_kBtu: totalGasKbtu,
+        grandTotal_kBtu: grandTotalKbtu,
+        electricitySharePercent: grandTotalKbtu > 0 ? (totalElecKbtu / grandTotalKbtu) * 100 : 0,
+        naturalGasSharePercent: grandTotalKbtu > 0 ? (totalGasKbtu / grandTotalKbtu) * 100 : 0,
+      }
+    };
+    scenarios.push(scObj);
+  }
+
+  return { success: true, scenarios, rows };
+}
+
+// =============================================================================
+// Helper: Format a Scenario as a 67-Column CSV Row
+// =============================================================================
+
+function formatScenarioCsvRow(sc, runId, revision) {
+  const cmap = sc.categoryMap || {};
+  const row = [runId, revision, sc.scenarioName];
+
+  // 26 electricity columns (kWh + W per category)
+  CSV_ELECS.forEach(catRaw => {
+    const r = cmap[catRaw];
+    row.push(r ? formatNumRaw(r.elecKwh, 2) : '0.00');
+    row.push(r ? formatNumRaw(r.elecDemW, 2) : '0.00');
+  });
+
+  // 6 natural gas columns (therm + Btu/h per category)
+  CSV_GASES.forEach(catRaw => {
+    const r = cmap[catRaw];
+    row.push(r ? formatNumRaw(r.gasTherm, 2) : '0.00');
+    row.push(r ? formatNumRaw(r.gasDemBtuh, 2) : '0.00');
+  });
+
+  return row;
+}
+
+// =============================================================================
+// Method 1: Load Results CSV
+// =============================================================================
+
+async function handleCsvFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    loadCsvContent(text, file.name);
   } catch (err) {
-    console.warn('Could not auto-fetch example files:', err);
-    showToast('Browser Mode', 'Drag & drop or select your CBECC output files or folder to begin', 'ℹ️');
+    showToast('Error', 'Failed to read CSV file: ' + err.message, '❌');
+  }
+}
+
+function loadCsvContent(text, filename) {
+  const result = parseComplianceCSV(text, filename);
+  if (!result.success || result.scenarios.length === 0) {
+    showToast('CSV Parsing Failed', result.error || 'Could not parse scenarios from CSV.', '⚠️');
+    return;
+  }
+
+  state.loadedCsvRows = result.rows;
+  state.baseCsvFilename = filename;
+  state.isAppendedData = false;
+  state.selectedFolderName = filename.replace(/\s*-\s*Results\.csv$/i, '').replace(/\.csv$/i, '');
+  updateCsvFilenamePreview();
+
+  // Populate Run ID & Rev in CSV export panel from first row
+  if (result.scenarios[0].runId && elements.csvRunId) {
+    elements.csvRunId.value = result.scenarios[0].runId;
+  }
+  if (result.scenarios[0].revision && elements.csvRevision) {
+    elements.csvRevision.value = result.scenarios[0].revision;
+  }
+
+  loadParsedScenarios(result.scenarios);
+
+  if (elements.csvStatusBadge) {
+    elements.csvStatusBadge.className = 'source-status-info';
+    elements.csvStatusBadge.innerHTML = `<span>✅ <strong>${filename}</strong>: Loaded ${result.scenarios.length} scenarios (${result.scenarios.map(s => s.scenarioName).join(', ')}).</span>`;
+    elements.csvStatusBadge.classList.remove('hidden');
+  }
+
+  showToast('CSV Loaded', `Loaded ${result.scenarios.length} scenarios from ${filename}!`, '✅');
+}
+
+async function loadSampleCsv() {
+  showToast('Loading Sample CSV...', 'Fetching 2394-LEED MDL- Results.csv...', '⏳');
+  try {
+    const res = await fetch('2394-LEED MDL- Results.csv');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    loadCsvContent(text, '2394-LEED MDL- Results.csv');
+  } catch (err) {
+    showToast('Notice', 'Could not load sample CSV: ' + err.message, '⚠️');
   }
 }
 
 // =============================================================================
-// File Ingestion Handlers (Browser Mode)
+// Method 2: Extract from Model Folder (HTM Files)
 // =============================================================================
 
 async function handleFileList(files) {
@@ -577,11 +789,256 @@ async function handleFileList(files) {
   }
 
   if (parsedResults.length > 0) {
+    state.isAppendedData = false;
     loadParsedScenarios(parsedResults);
+    if (elements.folderStatusBadge) {
+      elements.folderStatusBadge.className = 'source-status-info';
+      elements.folderStatusBadge.innerHTML = `<span>✅ Extracted ${parsedResults.length} scenarios (${parsedResults.map(s => s.scenarioName).join(', ')}) from HTM files.</span>`;
+      elements.folderStatusBadge.classList.remove('hidden');
+    }
     showToast('Success', `Successfully parsed ${parsedResults.length} scenarios!`, '✅');
   } else {
     showToast('Extraction Failed', 'No EAp2-4/5 compliance tables found in selected files', '⚠️');
   }
+}
+
+async function loadExampleDataInBrowser() {
+  showToast('Loading Demo...', 'Fetching sample CBECC simulation files...', '⏳');
+  const demoFiles = [
+    { scenario: 'ap',  path: 'example_project_folder/ap/1574_GLBH_S901G_CBECC2025 - ap.htm',   name: '1574_GLBH_S901G_CBECC2025 - ap.htm' },
+    { scenario: 'ab1', path: 'example_project_folder/ab1/1574_GLBH_S901G_CBECC2025 - ab1.htm', name: '1574_GLBH_S901G_CBECC2025 - ab1.htm' },
+    { scenario: 'ab2', path: 'example_project_folder/ab2/1574_GLBH_S901G_CBECC2025 - ab2.htm', name: '1574_GLBH_S901G_CBECC2025 - ab2.htm' },
+    { scenario: 'ab3', path: 'example_project_folder/ab3/1574_GLBH_S901G_CBECC2025 - ab3.htm', name: '1574_GLBH_S901G_CBECC2025 - ab3.htm' },
+    { scenario: 'ab4', path: 'example_project_folder/ab4/1574_GLBH_S901G_CBECC2025 - ab4.htm', name: '1574_GLBH_S901G_CBECC2025 - ab4.htm' },
+  ];
+
+  try {
+    const parsedResults = [];
+    for (const item of demoFiles) {
+      const res = await fetch(item.path);
+      if (!res.ok) throw new Error(`HTTP ${res.status} loading ${item.path}`);
+      const text = await res.text();
+      const parsed = extractComplianceFromHTML(text, item.scenario);
+      if (parsed) {
+        parsed.fileBaseName = item.name;
+        parsed.scenarioName = item.scenario;
+        parsedResults.push(parsed);
+      }
+    }
+
+    if (parsedResults.length > 0) {
+      state.isAppendedData = false;
+      state.selectedFolderName = '1574_GLBH_S901G_CBECC2025';
+      updateCsvFilenamePreview();
+      loadParsedScenarios(parsedResults);
+      if (elements.folderStatusBadge) {
+        elements.folderStatusBadge.className = 'source-status-info';
+        elements.folderStatusBadge.innerHTML = `<span>✅ Loaded 5 sample scenarios (ap, ab1–ab4) from example folder.</span>`;
+        elements.folderStatusBadge.classList.remove('hidden');
+      }
+      showToast('Demo Loaded', 'Loaded 5 example scenarios (ap, ab1–ab4)', '✅');
+    }
+  } catch (err) {
+    console.warn('Could not auto-fetch example files:', err);
+    showToast('Browser Mode', 'Drag & drop or select your CBECC output files or folder to begin', 'ℹ️');
+  }
+}
+
+// =============================================================================
+// Method 3: Append Model Run to CSV
+// =============================================================================
+
+async function handleAppendBaseCsv(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    setMethod3BaseCsv(text, file.name);
+  } catch (err) {
+    showToast('Error', 'Failed to read Base CSV: ' + err.message, '❌');
+  }
+}
+
+function setMethod3BaseCsv(text, filename) {
+  const result = parseComplianceCSV(text, filename);
+  if (!result.success || result.scenarios.length === 0) {
+    showToast('CSV Error', result.error || 'Invalid CSV format.', '⚠️');
+    return;
+  }
+  state.method3BaseCsvText = text;
+  state.method3BaseCsvRows = result.rows;
+  state.method3BaseFilename = filename;
+
+  if (elements.appendDropCsv) elements.appendDropCsv.classList.add('has-file');
+  if (elements.appendCsvStatus) {
+    elements.appendCsvStatus.innerHTML = `<strong>${filename}</strong> (${result.scenarios.length} scenarios)`;
+  }
+
+  // Suggest next Run ID if possible (e.g. Run_01 -> Run_02)
+  const lastRunId = result.scenarios[result.scenarios.length - 1].runId || 'Run_01';
+  const match = lastRunId.match(/(\d+)$/);
+  if (match && elements.appendRunId) {
+    const nextNum = String(parseInt(match[1], 10) + 1).padStart(match[1].length, '0');
+    elements.appendRunId.value = lastRunId.replace(/\d+$/, nextNum);
+  }
+
+  checkMethod3Ready();
+  showToast('Base CSV Ready', `Loaded base CSV: ${filename}`, '📄');
+}
+
+async function loadAppendSampleCsv() {
+  try {
+    const res = await fetch('2394-LEED MDL- Results.csv');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const text = await res.text();
+    setMethod3BaseCsv(text, '2394-LEED MDL- Results.csv');
+  } catch (err) {
+    showToast('Notice', 'Could not load sample CSV: ' + err.message, '⚠️');
+  }
+}
+
+async function handleAppendModelFolder(files) {
+  const htmFiles = Array.from(files).filter(f => f.name.endsWith('.htm') || f.name.endsWith('.html'));
+  if (htmFiles.length === 0) {
+    showToast('No HTM Files', 'Please select a folder containing .htm/.html files.', '⚠️');
+    return;
+  }
+
+  showToast('Extracting HTM...', `Reading ${htmFiles.length} files...`, '⏳');
+  const parsedResults = [];
+
+  for (const file of htmFiles) {
+    try {
+      const text = await file.text();
+      let scenarioName = file.name.replace(/\.(htm|html)$/i, '');
+      if (file.webkitRelativePath) {
+        const parts = file.webkitRelativePath.split('/');
+        if (parts.length > 2) scenarioName = parts[parts.length - 2];
+      }
+      const scLower = scenarioName.toLowerCase();
+      if (scLower.startsWith('zb') || scLower.startsWith('zp') || scLower.includes('- zb') || scLower.includes('- zp')) continue;
+
+      const parsed = extractComplianceFromHTML(text, scenarioName);
+      if (parsed) {
+        parsed.fileBaseName = file.name;
+        parsed.scenarioName = scenarioName;
+        parsedResults.push(parsed);
+      }
+    } catch (e) {
+      console.error('Error parsing file:', file.name, e);
+    }
+  }
+
+  if (parsedResults.length > 0) {
+    state.method3NewScenarios = parsedResults;
+    if (elements.appendDropFolder) elements.appendDropFolder.classList.add('has-file');
+    if (elements.appendFolderStatus) {
+      elements.appendFolderStatus.innerHTML = `<strong>${parsedResults.length} HTM Scenarios</strong> (${parsedResults.map(s => s.scenarioName).join(', ')})`;
+    }
+    checkMethod3Ready();
+    showToast('Model Folder Ready', `Extracted ${parsedResults.length} scenarios from HTM files!`, '📁');
+  } else {
+    showToast('Extraction Failed', 'No EAp2-4/5 compliance tables found in files.', '⚠️');
+  }
+}
+
+async function loadAppendSampleFolder() {
+  showToast('Loading Demo Folder...', 'Fetching sample CBECC simulation files...', '⏳');
+  const demoFiles = [
+    { scenario: 'ap',  path: 'example_project_folder/ap/1574_GLBH_S901G_CBECC2025 - ap.htm',   name: '1574_GLBH_S901G_CBECC2025 - ap.htm' },
+    { scenario: 'ab1', path: 'example_project_folder/ab1/1574_GLBH_S901G_CBECC2025 - ab1.htm', name: '1574_GLBH_S901G_CBECC2025 - ab1.htm' },
+    { scenario: 'ab2', path: 'example_project_folder/ab2/1574_GLBH_S901G_CBECC2025 - ab2.htm', name: '1574_GLBH_S901G_CBECC2025 - ab2.htm' },
+    { scenario: 'ab3', path: 'example_project_folder/ab3/1574_GLBH_S901G_CBECC2025 - ab3.htm', name: '1574_GLBH_S901G_CBECC2025 - ab3.htm' },
+    { scenario: 'ab4', path: 'example_project_folder/ab4/1574_GLBH_S901G_CBECC2025 - ab4.htm', name: '1574_GLBH_S901G_CBECC2025 - ab4.htm' },
+  ];
+
+  try {
+    const parsedResults = [];
+    for (const item of demoFiles) {
+      const res = await fetch(item.path);
+      if (!res.ok) throw new Error(`HTTP ${res.status} loading ${item.path}`);
+      const text = await res.text();
+      const parsed = extractComplianceFromHTML(text, item.scenario);
+      if (parsed) {
+        parsed.fileBaseName = item.name;
+        parsed.scenarioName = item.scenario;
+        parsedResults.push(parsed);
+      }
+    }
+    if (parsedResults.length > 0) {
+      state.method3NewScenarios = parsedResults;
+      if (elements.appendDropFolder) elements.appendDropFolder.classList.add('has-file');
+      if (elements.appendFolderStatus) {
+        elements.appendFolderStatus.innerHTML = `<strong>5 Sample Scenarios</strong> (ap, ab1–ab4)`;
+      }
+      checkMethod3Ready();
+      showToast('Sample Folder Ready', 'Loaded 5 sample scenarios for appending!', '📁');
+    }
+  } catch (err) {
+    showToast('Error', 'Could not load sample folder: ' + err.message, '⚠️');
+  }
+}
+
+function checkMethod3Ready() {
+  const ready = Boolean(state.method3BaseCsvRows && state.method3BaseCsvRows.length >= 3 &&
+                state.method3NewScenarios && state.method3NewScenarios.length > 0);
+  if (elements.executeAppendBtn) {
+    elements.executeAppendBtn.disabled = !ready;
+  }
+}
+
+function executeAppend() {
+  if (!state.method3BaseCsvRows || state.method3NewScenarios.length === 0) {
+    showToast('Missing Inputs', 'Please select both a base CSV and a model run folder first.', '⚠️');
+    return;
+  }
+
+  const runId = (elements.appendRunId ? elements.appendRunId.value.trim() : '') || 'Run_02';
+  const revision = (elements.appendRevision ? elements.appendRevision.value.trim() : '') || 'Rev.0';
+
+  // Clone base CSV rows
+  const combinedRows = state.method3BaseCsvRows.map(r => [...r]);
+
+  // Sort canonical: ap first, then ab1-ab4
+  const order = { 'ap': 1, 'ab1': 2, 'ab2': 3, 'ab3': 4, 'ab4': 5 };
+  const sortedNew = [...state.method3NewScenarios].sort((a, b) => {
+    const ordA = order[a.scenarioName.toLowerCase()] || 99;
+    const ordB = order[b.scenarioName.toLowerCase()] || 99;
+    return ordA - ordB;
+  });
+
+  // Append each new scenario as a 67-column row
+  sortedNew.forEach(sc => {
+    const newRow = formatScenarioCsvRow(sc, runId, revision);
+    combinedRows.push(newRow);
+  });
+
+  state.loadedCsvRows = combinedRows;
+  state.isAppendedData = true;
+  state.baseCsvFilename = state.method3BaseFilename;
+  const baseCleanName = (state.method3BaseFilename || 'Results').replace(/\s*-\s*Results\.csv$/i, '').replace(/\.csv$/i, '');
+  state.selectedFolderName = `${baseCleanName}_${runId}`;
+  updateCsvFilenamePreview();
+
+  // Convert combined rows back to CSV text and parse all scenarios into dashboard
+  const combinedCsvText = combinedRows.map(row =>
+    row.map(cell => {
+      const s = String(cell);
+      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')
+  ).join('\r\n');
+
+  const parsedAll = parseComplianceCSV(combinedCsvText, state.method3BaseFilename);
+  if (parsedAll.success) {
+    loadParsedScenarios(parsedAll.scenarios);
+  }
+
+  if (elements.appendStatusBadge) {
+    elements.appendStatusBadge.className = 'source-status-info';
+    elements.appendStatusBadge.innerHTML = `<span>✅ <strong>Success:</strong> Appended ${sortedNew.length} scenarios as <code>${runId}</code> (${revision}) to <em>${state.method3BaseFilename}</em>. Total rows: ${combinedRows.length - 2}. Click "Export CSV" to download the updated file.</span>`;
+    elements.appendStatusBadge.classList.remove('hidden');
+  }
+
+  showToast('Append Complete!', `Appended ${sortedNew.length} scenarios to ${state.method3BaseFilename}!`, '✅');
 }
 
 // =============================================================================
@@ -1392,13 +1849,19 @@ function buildCsvRowsForExport() {
 }
 
 function downloadCSVLog() {
-  if (state.scenarios.length === 0) {
+  if (state.scenarios.length === 0 && (!state.loadedCsvRows || state.loadedCsvRows.length <= 2)) {
     showToast('No Data', 'Load scenarios before exporting CSV.', '⚠️');
     return;
   }
 
-  const rows = buildCsvRowsForExport();
-  if (rows.length === 0) {
+  let rows;
+  if (state.isAppendedData && state.loadedCsvRows && state.loadedCsvRows.length > 2) {
+    rows = state.loadedCsvRows;
+  } else {
+    rows = buildCsvRowsForExport();
+  }
+
+  if (!rows || rows.length === 0) {
     showToast('No Scenarios', 'No scenarios matched the selected export scope.', '⚠️');
     return;
   }
@@ -1413,9 +1876,7 @@ function downloadCSVLog() {
     }).join(',')
   ).join('\r\n');
 
-  const rawFolder = state.selectedFolderName ||
-    (elements.folderPathInput ? elements.folderPathInput.value.trim() : '') ||
-    'Energy_Compliance';
+  const rawFolder = state.selectedFolderName || state.baseCsvFilename || 'Energy_Compliance';
   const filename = getCleanCsvFilename(rawFolder);
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -1466,35 +1927,103 @@ function setupEventListeners() {
     if (state.scenarios.length > 0) updateDashboard();
   });
 
-  // Direct Path Scan
-  elements.scanPathBtn.addEventListener('click', () => {
-    const path = elements.folderPathInput.value.trim();
-    if (path) scanFolderViaServer(path);
-    else showToast('Path Missing', 'Please enter a valid folder path', '⚠️');
-  });
+  // Tab switching
+  setupTabs();
 
-  elements.useDefaultBtn.addEventListener('click', () => {
-    if (state.isServerOnline) {
-      scanFolderViaServer('');
-    } else {
-      loadExampleDataInBrowser();
-    }
-  });
+  // Mode 1: Results CSV
+  if (elements.browseCsvBtn && elements.browserCsvInput) {
+    elements.browseCsvBtn.addEventListener('click', () => elements.browserCsvInput.click());
+    elements.browserCsvInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleCsvFile(e.target.files[0]);
+    });
+  }
+  if (elements.loadSampleCsvBtn) {
+    elements.loadSampleCsvBtn.addEventListener('click', loadSampleCsv);
+  }
+  if (elements.dropZoneCsv) {
+    elements.dropZoneCsv.addEventListener('dragover', e => { e.preventDefault(); elements.dropZoneCsv.classList.add('dragover'); });
+    elements.dropZoneCsv.addEventListener('dragleave', () => elements.dropZoneCsv.classList.remove('dragover'));
+    elements.dropZoneCsv.addEventListener('drop', e => {
+      e.preventDefault();
+      elements.dropZoneCsv.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) handleCsvFile(e.dataTransfer.files[0]);
+    });
+  }
 
-  // Browser Folder / Files
-  elements.browseFolderBtn.addEventListener('click', () => elements.browserFolderInput.click());
-  elements.browserFolderInput.addEventListener('change', e => { if (e.target.files.length > 0) handleFileList(e.target.files); });
-  elements.browseFilesBtn.addEventListener('click', () => elements.browserFilesInput.click());
-  elements.browserFilesInput.addEventListener('change', e => { if (e.target.files.length > 0) handleFileList(e.target.files); });
+  // Mode 2: Model Folder
+  if (elements.browseFolderBtn && elements.browserFolderInput) {
+    elements.browseFolderBtn.addEventListener('click', () => elements.browserFolderInput.click());
+    elements.browserFolderInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleFileList(e.target.files);
+    });
+  }
+  if (elements.browseFilesBtn && elements.browserFilesInput) {
+    elements.browseFilesBtn.addEventListener('click', () => elements.browserFilesInput.click());
+    elements.browserFilesInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleFileList(e.target.files);
+    });
+  }
+  if (elements.loadSampleFolderBtn) {
+    elements.loadSampleFolderBtn.addEventListener('click', loadExampleDataInBrowser);
+  }
+  if (elements.dropZoneFolder) {
+    elements.dropZoneFolder.addEventListener('dragover', e => { e.preventDefault(); elements.dropZoneFolder.classList.add('dragover'); });
+    elements.dropZoneFolder.addEventListener('dragleave', () => elements.dropZoneFolder.classList.remove('dragover'));
+    elements.dropZoneFolder.addEventListener('drop', e => {
+      e.preventDefault();
+      elements.dropZoneFolder.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) handleFileList(e.dataTransfer.files);
+    });
+  }
 
-  // Drag & Drop
-  elements.dropZone.addEventListener('dragover', e => { e.preventDefault(); elements.dropZone.classList.add('dragover'); });
-  elements.dropZone.addEventListener('dragleave', () => elements.dropZone.classList.remove('dragover'));
-  elements.dropZone.addEventListener('drop', e => {
-    e.preventDefault();
-    elements.dropZone.classList.remove('dragover');
-    if (e.dataTransfer.files.length > 0) handleFileList(e.dataTransfer.files);
-  });
+  // Mode 3: Append Model Run to CSV
+  if (elements.appendBrowseCsvBtn && elements.appendCsvInput) {
+    elements.appendBrowseCsvBtn.addEventListener('click', () => elements.appendCsvInput.click());
+    elements.appendCsvInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleAppendBaseCsv(e.target.files[0]);
+    });
+  }
+  if (elements.appendSampleCsvBtn) {
+    elements.appendSampleCsvBtn.addEventListener('click', loadAppendSampleCsv);
+  }
+  if (elements.appendDropCsv) {
+    elements.appendDropCsv.addEventListener('dragover', e => { e.preventDefault(); elements.appendDropCsv.classList.add('dragover'); });
+    elements.appendDropCsv.addEventListener('dragleave', () => elements.appendDropCsv.classList.remove('dragover'));
+    elements.appendDropCsv.addEventListener('drop', e => {
+      e.preventDefault();
+      elements.appendDropCsv.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) handleAppendBaseCsv(e.dataTransfer.files[0]);
+    });
+  }
+
+  if (elements.appendBrowseFolderBtn && elements.appendFolderInput) {
+    elements.appendBrowseFolderBtn.addEventListener('click', () => elements.appendFolderInput.click());
+    elements.appendFolderInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleAppendModelFolder(e.target.files);
+    });
+  }
+  if (elements.appendBrowseFilesBtn && elements.appendFilesInput) {
+    elements.appendBrowseFilesBtn.addEventListener('click', () => elements.appendFilesInput.click());
+    elements.appendFilesInput.addEventListener('change', e => {
+      if (e.target.files.length > 0) handleAppendModelFolder(e.target.files);
+    });
+  }
+  if (elements.appendSampleFolderBtn) {
+    elements.appendSampleFolderBtn.addEventListener('click', loadAppendSampleFolder);
+  }
+  if (elements.appendDropFolder) {
+    elements.appendDropFolder.addEventListener('dragover', e => { e.preventDefault(); elements.appendDropFolder.classList.add('dragover'); });
+    elements.appendDropFolder.addEventListener('dragleave', () => elements.appendDropFolder.classList.remove('dragover'));
+    elements.appendDropFolder.addEventListener('drop', e => {
+      e.preventDefault();
+      elements.appendDropFolder.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) handleAppendModelFolder(e.dataTransfer.files);
+    });
+  }
+
+  if (elements.executeAppendBtn) {
+    elements.executeAppendBtn.addEventListener('click', executeAppend);
+  }
 
   // Average Baselines Toggle
   if (elements.averageBaselinesToggle) {
@@ -1563,11 +2092,6 @@ function setupEventListeners() {
 // =============================================================================
 document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
-  const online = await checkServerStatus();
-  if (online) {
-    scanFolderViaServer('');
-  } else {
-    // In Browser / GitHub Pages mode: auto-load demo data so user sees live dashboard immediately
-    loadExampleDataInBrowser();
-  }
+  // Auto-load sample CSV on startup for instant live interactive dashboard
+  await loadSampleCsv();
 });
