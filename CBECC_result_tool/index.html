@@ -172,9 +172,9 @@
                 <input type="text" id="append-revision" class="text-input-sm" value="r34" placeholder="e.g. r34" />
               </div>
             </div>
-            <button type="button" id="execute-append-btn" class="btn btn-primary btn-lg" disabled>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-              Append New Run & Load Dashboard
+            <button type="button" id="execute-load-dashboard-btn" class="btn btn-primary btn-lg" disabled>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              Load Dashboard
             </button>
           </div>
           <div id="append-status-badge" class="source-status-info hidden"></div>
@@ -371,16 +371,29 @@
         </div>
       </section>
 
-      <!-- CSV Log Export Section -->
-      <section class="card csv-export-card">
+      <!-- CSV Log Export Section (Method 2) -->
+      <section class="card csv-export-card hidden" id="csv-export-section">
         <div class="card-header">
           <div class="card-title-group">
             <span class="card-step-badge">📁</span>
             <h3>Export to CSV Log</h3>
           </div>
-          <div class="csv-filename-info">
-            <span>Target File: </span>
-            <code id="csv-filename-preview">example_project_folder - Results.csv</code>
+        </div>
+        <div class="csv-path-config-grid">
+          <div class="csv-field-group">
+            <label for="csv-export-filename" class="input-label">Export File Name</label>
+            <input type="text" id="csv-export-filename" class="text-input csv-input" value="example_project_folder - Results.csv" />
+          </div>
+          <div class="csv-field-group">
+            <label for="csv-export-location" class="input-label">Export Location (Parent Folder)</label>
+            <div class="csv-location-row">
+              <input type="text" id="csv-export-location" class="text-input csv-input" placeholder="Click Browse… to choose a folder" readonly />
+              <button type="button" id="csv-browse-folder-btn" class="btn btn-secondary csv-browse-btn" title="Pick destination folder in file explorer">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                Browse…
+              </button>
+            </div>
+            <span id="csv-location-status" class="csv-location-status"></span>
           </div>
         </div>
         <div class="csv-export-form">
@@ -404,7 +417,59 @@
             Export CSV
           </button>
         </div>
-        <p class="csv-note">File name is automatically based on the project folder (ignoring trailing <code>- run</code> or <code>- batch</code> and adding <code>- Results.csv</code>). Formatted with 2 header rows and 67 columns per scenario row for pasting into compliance logs.</p>
+        <p class="csv-note">Default file name is based on the project folder; default location is the parent folder. Formatted with 2 header rows and 67 columns per scenario row.</p>
+      </section>
+
+      <!-- Append to CSV Log Section (Method 3) -->
+      <section class="card csv-export-card hidden" id="csv-append-section">
+        <div class="card-header">
+          <div class="card-title-group">
+            <span class="card-step-badge">📝</span>
+            <h3>Append Scenarios to CSV Log</h3>
+          </div>
+          <div class="csv-target-info">
+            <span>Base File: </span>
+            <code id="append-target-csv-name">2394-LEED MDL- Results.csv</code>
+          </div>
+        </div>
+
+        <div class="append-section-body">
+          <p class="append-instructions">
+            Select which scenarios from this run you want to append to the base compliance log:
+          </p>
+
+          <div class="append-scenario-selector">
+            <div class="append-selector-header">
+              <strong>Scenarios to Append:</strong>
+              <div class="append-selector-actions">
+                <button type="button" id="append-select-all-btn" class="btn-link">Select All</button>
+                <span class="divider">|</span>
+                <button type="button" id="append-deselect-all-btn" class="btn-link">Deselect All</button>
+              </div>
+            </div>
+            <div class="append-checklist-grid" id="append-scenario-checklist">
+              <!-- Dynamically populated checkboxes -->
+            </div>
+          </div>
+
+          <div class="csv-path-config-grid">
+            <div class="csv-field-group">
+              <label for="append-export-filename" class="input-label">Updated File Name</label>
+              <input type="text" id="append-export-filename" class="text-input csv-input" value="Results_Updated.csv" />
+            </div>
+            <div class="csv-field-group">
+              <label for="append-export-location" class="input-label">Save Location (Parent Folder)</label>
+              <input type="text" id="append-export-location" class="text-input csv-input" placeholder="e.g. C:\Models\Project" />
+            </div>
+          </div>
+
+          <div class="append-submit-row">
+            <button type="button" id="append-download-csv-btn" class="btn btn-primary btn-lg">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+              Append Selected Scenarios to CSV
+            </button>
+          </div>
+        </div>
       </section>
 
     </main>

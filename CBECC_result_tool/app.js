@@ -188,10 +188,55 @@ const CANONICAL_ORDER = {
   'ab4': 6
 };
 
+/**
+ * Returns O'Brien360 brand color matching scenario suffix (ap, baseline avg, ab1-ab4)
+ * regardless of whether scenario is named 'ap' or 'Run_01_r33_ap'.
+ */
+function getScenarioColor(name, index = 0) {
+  if (!name) return CHART_COLORS[index % CHART_COLORS.length];
+  const lower = name.toLowerCase().trim();
+  if (SCENARIO_COLORS[lower]) return SCENARIO_COLORS[lower];
+  if (lower.endsWith('_ap') || lower === 'ap') return SCENARIO_COLORS.ap;
+  if (lower.includes('baseline avg') || lower.endsWith('_baseline avg') || lower.endsWith('_ab_avg')) return SCENARIO_COLORS['baseline avg'];
+  if (lower.endsWith('_ab1') || lower === 'ab1') return SCENARIO_COLORS.ab1;
+  if (lower.endsWith('_ab2') || lower === 'ab2') return SCENARIO_COLORS.ab2;
+  if (lower.endsWith('_ab3') || lower === 'ab3') return SCENARIO_COLORS.ab3;
+  if (lower.endsWith('_ab4') || lower === 'ab4') return SCENARIO_COLORS.ab4;
+  return CHART_COLORS[index % CHART_COLORS.length];
+}
+
+function getScenarioSortWeight(name) {
+  if (!name) return 99;
+  const lower = name.toLowerCase().trim();
+  if (lower.endsWith('_ap') || lower === 'ap') return 1;
+  if (lower.includes('baseline avg') || lower.endsWith('_baseline avg')) return 2;
+  if (lower.endsWith('_ab1') || lower === 'ab1') return 3;
+  if (lower.endsWith('_ab2') || lower === 'ab2') return 4;
+  if (lower.endsWith('_ab3') || lower === 'ab3') return 5;
+  if (lower.endsWith('_ab4') || lower === 'ab4') return 6;
+  return 10;
+}
+
+function sortScenarios(scenarios) {
+  return [...scenarios].sort((a, b) => {
+    const runA = a.runId || '';
+    const runB = b.runId || '';
+    if (runA !== runB) {
+      return runA.localeCompare(runB, undefined, { numeric: true });
+    }
+    const ordA = getScenarioSortWeight(a.scenarioName);
+    const ordB = getScenarioSortWeight(b.scenarioName);
+    if (ordA !== ordB) return ordA - ordB;
+    return a.scenarioName.localeCompare(b.scenarioName);
+  });
+}
+
 // =============================================================================
 // Application State
 // =============================================================================
 const state = {
+  activeIngestionMethod: 1,  // 1: Results CSV, 2: Model Folder, 3: Append
+
   rawScenarios: [],        // Original parsed scenarios from folder
   scenarios: [],           // All display scenarios (including Baseline Avg if enabled)
   baselineAvgScenario: null, // Computed Baseline Avg scenario
@@ -202,13 +247,14 @@ const state = {
   selectedFolderName: '',  // Current project folder name
 
   // Mode 1 & 3: CSV and Append State
-  loadedCsvRows: [],         // Array of raw CSV rows (header 1, header 2, data rows)
-  baseCsvFilename: '',       // Filename of loaded base CSV
-  isAppendedData: false,     // True if currently displaying appended data
-  method3BaseCsvRows: null,  // Base CSV rows for Method 3
-  method3BaseCsvText: '',    // Base CSV raw text for Method 3
-  method3BaseFilename: '',   // Base CSV filename for Method 3
-  method3NewScenarios: [],   // Extracted HTM scenarios pending append
+  loadedCsvRows: [],                  // Array of raw CSV rows (header 1, header 2, data rows)
+  baseCsvFilename: '',                // Filename of loaded base CSV
+  isAppendedData: false,              // True if currently displaying appended data
+  method3BaseCsvRows: null,           // Base CSV rows for Method 3
+  method3BaseCsvText: '',             // Base CSV raw text for Method 3
+  method3BaseFilename: '',            // Base CSV filename for Method 3
+  method3NewScenarios: [],            // Extracted HTM scenarios pending append
+  method3ExtractedRunScenarios: [],   // Scenarios of new run available in checklist for appending
 
   viewMode: 'compare',     // 'compare' | 'single' | 'variance'
   energyUnit: 'kBtu',       // 'kBtu' | 'kWh' | 'therm'
@@ -220,6 +266,7 @@ const state = {
 
   chartInstance: null,
   isServerOnline: false,
+  csvExportDirHandle: null,   // FileSystemDirectoryHandle from showDirectoryPicker()
 };
 
 // =============================================================================
@@ -269,7 +316,8 @@ const elements = {
   appendSampleFolderBtn: document.getElementById('append-sample-folder-btn'),
   appendRunId: document.getElementById('append-run-id'),
   appendRevision: document.getElementById('append-revision'),
-  executeAppendBtn: document.getElementById('execute-append-btn'),
+  executeLoadDashboardBtn: document.getElementById('execute-load-dashboard-btn') || document.getElementById('execute-append-btn'),
+  executeAppendBtn: document.getElementById('execute-load-dashboard-btn') || document.getElementById('execute-append-btn'),
   appendStatusBadge: document.getElementById('append-status-badge'),
 
   scenariosContainer: document.getElementById('scenarios-container'),
@@ -316,12 +364,27 @@ const elements = {
   copyExcelBtn: document.getElementById('copy-excel-btn'),
   exportExcelBtn: document.getElementById('export-excel-btn'),
 
-  // CSV export panel
+  // CSV Export panel (Method 2)
+  csvExportSection: document.getElementById('csv-export-section'),
+  csvExportFilename: document.getElementById('csv-export-filename'),
+  csvExportLocation: document.getElementById('csv-export-location'),
   csvFilenamePreview: document.getElementById('csv-filename-preview'),
   csvRunId: document.getElementById('csv-run-id'),
   csvRevision: document.getElementById('csv-revision'),
   csvExportScope: document.getElementById('csv-export-scope'),
   exportCsvBtn: document.getElementById('export-csv-btn'),
+  csvBrowseFolderBtn: document.getElementById('csv-browse-folder-btn'),
+  csvLocationStatus: document.getElementById('csv-location-status'),
+
+  // CSV Append panel (Method 3)
+  csvAppendSection: document.getElementById('csv-append-section'),
+  appendTargetCsvName: document.getElementById('append-target-csv-name'),
+  appendScenarioChecklist: document.getElementById('append-scenario-checklist'),
+  appendSelectAllBtn: document.getElementById('append-select-all-btn'),
+  appendDeselectAllBtn: document.getElementById('append-deselect-all-btn'),
+  appendExportFilename: document.getElementById('append-export-filename'),
+  appendExportLocation: document.getElementById('append-export-location'),
+  appendDownloadCsvBtn: document.getElementById('append-download-csv-btn'),
 
   toast: document.getElementById('toast'),
   toastTitle: document.getElementById('toast-title'),
@@ -483,14 +546,38 @@ function getCategoryEnergyValue(catData, fuel = state.fuelType, unit = state.ene
 }
 
 // =============================================================================
-// Tab Switching
+// Tab Switching & Export Section Visibility
 // =============================================================================
+
+function updateExportSectionsVisibility() {
+  const hasScenarios = state.scenarios && state.scenarios.length > 0;
+
+  if (!hasScenarios) {
+    if (elements.csvExportSection) elements.csvExportSection.classList.add('hidden');
+    if (elements.csvAppendSection) elements.csvAppendSection.classList.add('hidden');
+    return;
+  }
+
+  if (state.activeIngestionMethod === 1) {
+    // Method 1: No Export CSV section shown
+    if (elements.csvExportSection) elements.csvExportSection.classList.add('hidden');
+    if (elements.csvAppendSection) elements.csvAppendSection.classList.add('hidden');
+  } else if (state.activeIngestionMethod === 2) {
+    // Method 2: Show Export to CSV Log with editable filename & location
+    if (elements.csvExportSection) elements.csvExportSection.classList.remove('hidden');
+    if (elements.csvAppendSection) elements.csvAppendSection.classList.add('hidden');
+  } else if (state.activeIngestionMethod === 3) {
+    // Method 3: Show Append Scenarios to CSV Log (checklist + append download)
+    if (elements.csvExportSection) elements.csvExportSection.classList.add('hidden');
+    if (elements.csvAppendSection) elements.csvAppendSection.classList.remove('hidden');
+  }
+}
 
 function setupTabs() {
   const tabs = [
-    { btn: elements.tabBtn1, pane: elements.tabPane1 },
-    { btn: elements.tabBtn2, pane: elements.tabPane2 },
-    { btn: elements.tabBtn3, pane: elements.tabPane3 },
+    { id: 1, btn: elements.tabBtn1, pane: elements.tabPane1 },
+    { id: 2, btn: elements.tabBtn2, pane: elements.tabPane2 },
+    { id: 3, btn: elements.tabBtn3, pane: elements.tabPane3 },
   ];
 
   tabs.forEach(t => {
@@ -502,6 +589,8 @@ function setupTabs() {
       });
       t.btn.classList.add('active');
       t.pane.classList.remove('hidden');
+      state.activeIngestionMethod = t.id;
+      updateExportSectionsVisibility();
     });
   });
 }
@@ -562,7 +651,7 @@ function parseCsvToRows(text) {
   return rows.filter(r => r.some(cell => cell.length > 0));
 }
 
-function parseComplianceCSV(csvText, filename = '') {
+function parseComplianceCSV(csvText, filename = '', formatCompositeName = false) {
   const rows = parseCsvToRows(csvText);
   if (rows.length < 3) {
     return { success: false, error: 'CSV file must have 2 header rows and at least 1 data row.' };
@@ -576,7 +665,10 @@ function parseComplianceCSV(csvText, filename = '') {
 
     const runId = row[0] || 'Run_01';
     const rev = row[1] || 'Rev.0';
-    const scenarioName = row[2].trim();
+    const rawScenario = row[2].trim();
+    const scenarioName = formatCompositeName
+      ? `${runId}_${rev}_${rawScenario}`
+      : rawScenario;
 
     const categoryMap = {};
     FIXED_CATEGORIES.forEach(fc => {
@@ -631,11 +723,15 @@ function parseComplianceCSV(csvText, filename = '') {
     const totalGasKbtu  = totalGasTherm * CONVERSIONS.THERM_TO_KBTU;
     const grandTotalKbtu = totalElecKbtu + totalGasKbtu;
 
+    const isAvg = rawScenario.toLowerCase().includes('baseline avg') || scenarioName.toLowerCase().includes('baseline avg');
+
     const scObj = {
       scenarioName,
+      rawScenarioName: rawScenario,
       sourceName: `${scenarioName} (${runId})`,
       runId,
       revision: rev,
+      isCalculatedAverage: isAvg,
       fileBaseName: `${scenarioName}.csv`,
       categoryMap,
       summary: {
@@ -658,9 +754,10 @@ function parseComplianceCSV(csvText, filename = '') {
 // Helper: Format a Scenario as a 67-Column CSV Row
 // =============================================================================
 
-function formatScenarioCsvRow(sc, runId, revision) {
+function formatScenarioCsvRow(sc, runId, revision, rawScenarioName = '') {
   const cmap = sc.categoryMap || {};
-  const row = [runId, revision, sc.scenarioName];
+  const scName = rawScenarioName || sc.rawScenarioName || sc.scenarioName;
+  const row = [runId, revision, scName];
 
   // 26 electricity columns (kWh + W per category)
   CSV_ELECS.forEach(catRaw => {
@@ -694,7 +791,8 @@ async function handleCsvFile(file) {
 }
 
 function loadCsvContent(text, filename) {
-  const result = parseComplianceCSV(text, filename);
+  state.activeIngestionMethod = 1;
+  const result = parseComplianceCSV(text, filename, true); // formatCompositeName = true for Method 1
   if (!result.success || result.scenarios.length === 0) {
     showToast('CSV Parsing Failed', result.error || 'Could not parse scenarios from CSV.', '⚠️');
     return;
@@ -722,6 +820,7 @@ function loadCsvContent(text, filename) {
     elements.csvStatusBadge.classList.remove('hidden');
   }
 
+  updateExportSectionsVisibility();
   showToast('CSV Loaded', `Loaded ${result.scenarios.length} scenarios from ${filename}!`, '✅');
 }
 
@@ -748,13 +847,26 @@ async function handleFileList(files) {
     return;
   }
 
-  // Derive folder name from relative path or first file
+  state.activeIngestionMethod = 2;
+
+  // Derive folder name and parent folder hint
+  let parentFolderName = '..\\';
   if (files.length > 0 && files[0].webkitRelativePath) {
-    state.selectedFolderName = files[0].webkitRelativePath.split('/')[0];
+    const parts = files[0].webkitRelativePath.split('/');
+    state.selectedFolderName = parts[0];
   } else if (files.length > 0) {
     state.selectedFolderName = files[0].name.replace(/\.(htm|html)$/i, '');
   }
+
   updateCsvFilenamePreview();
+
+  // Set default export filename and location for Method 2
+  if (elements.csvExportFilename) {
+    elements.csvExportFilename.value = getCleanCsvFilename(state.selectedFolderName);
+  }
+  if (elements.csvExportLocation) {
+    elements.csvExportLocation.value = parentFolderName;
+  }
 
   showToast('Parsing Files...', `Reading ${htmFiles.length} files in browser...`, '⏳');
   const parsedResults = [];
@@ -781,6 +893,7 @@ async function handleFileList(files) {
       if (parsed) {
         parsed.fileBaseName   = file.name;
         parsed.scenarioName   = scenarioName;
+        parsed.rawScenarioName = scenarioName;
         parsedResults.push(parsed);
       }
     } catch (e) {
@@ -796,6 +909,7 @@ async function handleFileList(files) {
       elements.folderStatusBadge.innerHTML = `<span>✅ Extracted ${parsedResults.length} scenarios (${parsedResults.map(s => s.scenarioName).join(', ')}) from HTM files.</span>`;
       elements.folderStatusBadge.classList.remove('hidden');
     }
+    updateExportSectionsVisibility();
     showToast('Success', `Successfully parsed ${parsedResults.length} scenarios!`, '✅');
   } else {
     showToast('Extraction Failed', 'No EAp2-4/5 compliance tables found in selected files', '⚠️');
@@ -822,20 +936,31 @@ async function loadExampleDataInBrowser() {
       if (parsed) {
         parsed.fileBaseName = item.name;
         parsed.scenarioName = item.scenario;
+        parsed.rawScenarioName = item.scenario;
         parsedResults.push(parsed);
       }
     }
 
     if (parsedResults.length > 0) {
+      state.activeIngestionMethod = 2;
       state.isAppendedData = false;
       state.selectedFolderName = '1574_GLBH_S901G_CBECC2025';
       updateCsvFilenamePreview();
+
+      if (elements.csvExportFilename) {
+        elements.csvExportFilename.value = getCleanCsvFilename('1574_GLBH_S901G_CBECC2025');
+      }
+      if (elements.csvExportLocation) {
+        elements.csvExportLocation.value = '..\\';
+      }
+
       loadParsedScenarios(parsedResults);
       if (elements.folderStatusBadge) {
         elements.folderStatusBadge.className = 'source-status-info';
         elements.folderStatusBadge.innerHTML = `<span>✅ Loaded 5 sample scenarios (ap, ab1–ab4) from example folder.</span>`;
         elements.folderStatusBadge.classList.remove('hidden');
       }
+      updateExportSectionsVisibility();
       showToast('Demo Loaded', 'Loaded 5 example scenarios (ap, ab1–ab4)', '✅');
     }
   } catch (err) {
@@ -859,7 +984,7 @@ async function handleAppendBaseCsv(file) {
 }
 
 function setMethod3BaseCsv(text, filename) {
-  const result = parseComplianceCSV(text, filename);
+  const result = parseComplianceCSV(text, filename, true);
   if (!result.success || result.scenarios.length === 0) {
     showToast('CSV Error', result.error || 'Invalid CSV format.', '⚠️');
     return;
@@ -921,6 +1046,7 @@ async function handleAppendModelFolder(files) {
       if (parsed) {
         parsed.fileBaseName = file.name;
         parsed.scenarioName = scenarioName;
+        parsed.rawScenarioName = scenarioName;
         parsedResults.push(parsed);
       }
     } catch (e) {
@@ -961,6 +1087,7 @@ async function loadAppendSampleFolder() {
       if (parsed) {
         parsed.fileBaseName = item.name;
         parsed.scenarioName = item.scenario;
+        parsed.rawScenarioName = item.scenario;
         parsedResults.push(parsed);
       }
     }
@@ -981,24 +1108,33 @@ async function loadAppendSampleFolder() {
 function checkMethod3Ready() {
   const ready = Boolean(state.method3BaseCsvRows && state.method3BaseCsvRows.length >= 3 &&
                 state.method3NewScenarios && state.method3NewScenarios.length > 0);
+  if (elements.executeLoadDashboardBtn) {
+    elements.executeLoadDashboardBtn.disabled = !ready;
+  }
   if (elements.executeAppendBtn) {
     elements.executeAppendBtn.disabled = !ready;
   }
 }
 
-function executeAppend() {
+/**
+ * Method 3: Load Dashboard (does not append immediately)
+ * Computes baseline average for new run, tags scenarios as runID_rev_scenario,
+ * loads into dashboard, and populates checklist to let user choose scenarios to append.
+ */
+function executeLoadDashboard() {
   if (!state.method3BaseCsvRows || state.method3NewScenarios.length === 0) {
     showToast('Missing Inputs', 'Please select both a base CSV and a model run folder first.', '⚠️');
     return;
   }
 
   const runId = (elements.appendRunId ? elements.appendRunId.value.trim() : '') || 'Run_02';
-  const revision = (elements.appendRevision ? elements.appendRevision.value.trim() : '') || 'Rev.0';
+  const revision = (elements.appendRevision ? elements.appendRevision.value.trim() : '') || 'r34';
 
-  // Clone base CSV rows
-  const combinedRows = state.method3BaseCsvRows.map(r => [...r]);
+  // 1. Prepare Base CSV scenarios (with composite names)
+  const baseResult = parseComplianceCSV(state.method3BaseCsvText, state.method3BaseFilename, true);
+  const baseScenarios = baseResult.success ? baseResult.scenarios : [];
 
-  // Sort canonical: ap first, then ab1-ab4
+  // 2. Prepare New Run scenarios from HTM files
   const order = { 'ap': 1, 'ab1': 2, 'ab2': 3, 'ab3': 4, 'ab4': 5 };
   const sortedNew = [...state.method3NewScenarios].sort((a, b) => {
     const ordA = order[a.scenarioName.toLowerCase()] || 99;
@@ -1006,39 +1142,138 @@ function executeAppend() {
     return ordA - ordB;
   });
 
-  // Append each new scenario as a 67-column row
-  sortedNew.forEach(sc => {
-    const newRow = formatScenarioCsvRow(sc, runId, revision);
-    combinedRows.push(newRow);
+  const newRunScenarios = sortedNew.map(sc => {
+    const rawName = sc.rawScenarioName || sc.scenarioName;
+    return {
+      ...sc,
+      rawScenarioName: rawName,
+      runId: runId,
+      revision: revision,
+      scenarioName: `${runId}_${revision}_${rawName}`,
+      sourceName: `${runId}_${revision}_${rawName} (${runId})`,
+      fileBaseName: `${runId}_${revision}_${rawName}.htm`,
+    };
   });
 
-  state.loadedCsvRows = combinedRows;
-  state.isAppendedData = true;
-  state.baseCsvFilename = state.method3BaseFilename;
-  const baseCleanName = (state.method3BaseFilename || 'Results').replace(/\s*-\s*Results\.csv$/i, '').replace(/\.csv$/i, '');
-  state.selectedFolderName = `${baseCleanName}_${runId}`;
-  updateCsvFilenamePreview();
-
-  // Convert combined rows back to CSV text and parse all scenarios into dashboard
-  const combinedCsvText = combinedRows.map(row =>
-    row.map(cell => {
-      const s = String(cell);
-      return (s.includes(',') || s.includes('"') || s.includes('\n')) ? `"${s.replace(/"/g, '""')}"` : s;
-    }).join(',')
-  ).join('\r\n');
-
-  const parsedAll = parseComplianceCSV(combinedCsvText, state.method3BaseFilename);
-  if (parsedAll.success) {
-    loadParsedScenarios(parsedAll.scenarios);
+  // Calculate baseline average for new run
+  const newRunBaselines = newRunScenarios.filter(s => /(?:^|_)ab\d+$/i.test(s.rawScenarioName || s.scenarioName));
+  if (newRunBaselines.length > 0) {
+    const newRunAvg = computeBaselineAverageForGroup(newRunBaselines, runId, revision);
+    if (newRunAvg) {
+      newRunScenarios.push(newRunAvg);
+    }
   }
+
+  // Combine both sets
+  const allScenarios = [...baseScenarios, ...newRunScenarios];
+  state.isAppendedData = true;
+  state.activeIngestionMethod = 3;
+
+  // Load into dashboard
+  loadParsedScenarios(allScenarios);
+
+  // Store the new run scenarios available for appending
+  state.method3ExtractedRunScenarios = newRunScenarios;
+
+  // Populate Append Checklist in Section
+  renderAppendChecklist(newRunScenarios, runId, revision);
+
+  // Set default export filename & location in append panel
+  if (elements.appendExportFilename) {
+    const baseClean = (state.method3BaseFilename || 'Results').replace(/\.csv$/i, '');
+    elements.appendExportFilename.value = `${baseClean}_${runId}.csv`;
+  }
+  if (elements.appendExportLocation) {
+    elements.appendExportLocation.value = '..\\';
+  }
+  if (elements.appendTargetCsvName) {
+    elements.appendTargetCsvName.textContent = state.method3BaseFilename || 'Results.csv';
+  }
+
+  updateExportSectionsVisibility();
 
   if (elements.appendStatusBadge) {
     elements.appendStatusBadge.className = 'source-status-info';
-    elements.appendStatusBadge.innerHTML = `<span>✅ <strong>Success:</strong> Appended ${sortedNew.length} scenarios as <code>${runId}</code> (${revision}) to <em>${state.method3BaseFilename}</em>. Total rows: ${combinedRows.length - 2}. Click "Export CSV" to download the updated file.</span>`;
+    elements.appendStatusBadge.innerHTML = `<span>✅ <strong>Dashboard Loaded:</strong> Displaying ${allScenarios.length} scenarios across base run and new run <code>${runId}</code> (${revision}). Select which scenarios to append below.</span>`;
     elements.appendStatusBadge.classList.remove('hidden');
   }
 
-  showToast('Append Complete!', `Appended ${sortedNew.length} scenarios to ${state.method3BaseFilename}!`, '✅');
+  showToast('Dashboard Loaded', `Loaded base run and new run ${runId} (${revision}) with Baseline Avg!`, '✅');
+}
+
+function renderAppendChecklist(scenarios, runId, revision) {
+  if (!elements.appendScenarioChecklist) return;
+  elements.appendScenarioChecklist.innerHTML = '';
+
+  scenarios.forEach((sc, idx) => {
+    const raw = sc.rawScenarioName || sc.scenarioName;
+    const isAvg = sc.isCalculatedAverage || raw.toLowerCase().includes('baseline avg');
+    const labelText = isAvg ? `${sc.scenarioName} (Calculated Baseline Average)` :
+                      raw === 'ap' ? `${sc.scenarioName} (Proposed Design)` :
+                      `${sc.scenarioName} (${raw.toUpperCase()})`;
+
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'append-check-item';
+    itemDiv.innerHTML = `
+      <label class="custom-checkbox">
+        <input type="checkbox" class="append-scenario-cb" data-index="${idx}" value="${sc.scenarioName}" checked />
+        <span class="checkmark"></span>
+        <span class="append-item-label">${labelText}</span>
+      </label>
+    `;
+    elements.appendScenarioChecklist.appendChild(itemDiv);
+  });
+}
+
+function downloadAppendedCsv() {
+  if (!state.method3BaseCsvRows || !state.method3ExtractedRunScenarios) {
+    showToast('No Data', 'Please load dashboard with base CSV and new run first.', '⚠️');
+    return;
+  }
+
+  const checkboxes = elements.appendScenarioChecklist.querySelectorAll('.append-scenario-cb:checked');
+  if (checkboxes.length === 0) {
+    showToast('Selection Empty', 'Please select at least one scenario to append.', '⚠️');
+    return;
+  }
+
+  const selectedNames = Array.from(checkboxes).map(cb => cb.value);
+  const scenariosToAppend = state.method3ExtractedRunScenarios.filter(sc => selectedNames.includes(sc.scenarioName));
+
+  // Clone base CSV rows
+  const combinedRows = state.method3BaseCsvRows.map(r => [...r]);
+
+  // Append each chosen scenario as a 67-column row
+  scenariosToAppend.forEach(sc => {
+    const rawName = sc.rawScenarioName || sc.scenarioName;
+    const newRow = formatScenarioCsvRow(sc, sc.runId, sc.revision, rawName);
+    combinedRows.push(newRow);
+  });
+
+  const csvContent = combinedRows.map(row =>
+    row.map(cell => {
+      const s = String(cell);
+      return (s.includes(',') || s.includes('"') || s.includes('\n'))
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    }).join(',')
+  ).join('\r\n');
+
+  const filename = (elements.appendExportFilename && elements.appendExportFilename.value.trim())
+    || `${(state.method3BaseFilename || 'Results').replace(/\.csv$/i, '')}_updated.csv`;
+  const location = (elements.appendExportLocation && elements.appendExportLocation.value.trim()) || '..\\';
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showToast('CSV Saved!', `Appended ${scenariosToAppend.length} scenario(s) to ${filename} (Target Location: ${location}).`, '💾');
 }
 
 // =============================================================================
@@ -1073,12 +1308,11 @@ function updateCsvFilenamePreview() {
 // =============================================================================
 
 /**
- * Calculates the average of the 4 baseline scenarios (ab1, ab2, ab3, ab4).
+ * Calculates the average of baseline scenarios (ab1, ab2, ab3, ab4) for a given run.
  * Creates a synthetic scenario object with identical structure to parsed scenarios.
  */
-function computeBaselineAverage(scenarios) {
-  const baselines = scenarios.filter(s => /^ab\d+/i.test(s.scenarioName));
-  if (baselines.length === 0) return null;
+function computeBaselineAverageForGroup(baselines, runId = '', revision = '') {
+  if (!baselines || baselines.length === 0) return null;
 
   const count = baselines.length;
   const categoryMap = {};
@@ -1144,10 +1378,17 @@ function computeBaselineAverage(scenarios) {
   const totalGasKbtu   = totalGasTherm * CONVERSIONS.THERM_TO_KBTU;
   const grandTotalKbtu = totalElecKbtu + totalGasKbtu;
 
+  const compositeName = (runId && revision)
+    ? `${runId}_${revision}_Baseline Avg`
+    : (runId ? `${runId}_Baseline Avg` : 'Baseline Avg');
+
   return {
-    scenarioName: 'Baseline Avg',
+    scenarioName: compositeName,
+    rawScenarioName: 'Baseline Avg',
+    runId,
+    revision,
     isCalculatedAverage: true,
-    fileBaseName: 'baseline_avg',
+    fileBaseName: `${compositeName}.csv`,
     categoryMap,
     summary: {
       totalElectricity_kWh:  totalElecKwh,
@@ -1162,48 +1403,79 @@ function computeBaselineAverage(scenarios) {
 }
 
 function loadParsedScenarios(scenarios) {
-  // Filter out zb/zp and any previous Baseline Avg
+  // Filter out zb/zp
   const filtered = scenarios.filter(s => {
     const scLower = s.scenarioName.toLowerCase();
     return !scLower.startsWith('zb') && !scLower.startsWith('zp') &&
-           !scLower.includes('- zb') && !scLower.includes('- zp') &&
-           s.scenarioName !== 'Baseline Avg';
+           !scLower.includes('- zb') && !scLower.includes('- zp');
   });
 
   state.rawScenarios = [...filtered];
 
-  // Calculate Baseline Average across ab1..ab4
-  const baselineAvg = computeBaselineAverage(filtered);
-  state.baselineAvgScenario = baselineAvg;
-
-  if (baselineAvg) {
-    filtered.push(baselineAvg);
-  }
-
-  // Sort: ap first, then Baseline Avg, then ab1-ab4
-  filtered.sort((a, b) => {
-    const ordA = CANONICAL_ORDER[a.scenarioName.toLowerCase()] || 99;
-    const ordB = CANONICAL_ORDER[b.scenarioName.toLowerCase()] || 99;
-    return ordA - ordB;
+  // Group scenarios by run (runId + revision) to ensure baseline averages are calculated per run
+  const runGroups = new Map();
+  filtered.forEach(s => {
+    const runKey = (s.runId && s.revision) ? `${s.runId}_${s.revision}` : (s.runId || 'default');
+    if (!runGroups.has(runKey)) runGroups.set(runKey, []);
+    runGroups.get(runKey).push(s);
   });
 
-  state.scenarios = filtered;
+  runGroups.forEach((groupScenarios, runKey) => {
+    const hasExistingAvg = groupScenarios.some(s =>
+      s.scenarioName.toLowerCase().includes('baseline avg') ||
+      (s.rawScenarioName && s.rawScenarioName.toLowerCase().includes('baseline avg'))
+    );
+
+    if (hasExistingAvg) {
+      groupScenarios.forEach(s => {
+        if (s.scenarioName.toLowerCase().includes('baseline avg')) {
+          s.isCalculatedAverage = true;
+        }
+      });
+    } else {
+      // Find baselines in this run group
+      const baselines = groupScenarios.filter(s =>
+        /(?:^|_)ab\d+$/i.test(s.rawScenarioName || s.scenarioName)
+      );
+      if (baselines.length > 0) {
+        const first = baselines[0];
+        const avgScenario = computeBaselineAverageForGroup(baselines, first.runId || '', first.revision || '');
+        if (avgScenario) {
+          filtered.push(avgScenario);
+        }
+      }
+    }
+  });
+
+  // Sort canonical: grouped by run, ap first, then Baseline Avg, then ab1-ab4
+  const sorted = sortScenarios(filtered);
+  state.scenarios = sorted;
 
   // Option: average of the 4 baseline results, default to select it and not selecting ab1, ab2, ab3, ab4
   state.averageBaselines = elements.averageBaselinesToggle ? elements.averageBaselinesToggle.checked : true;
 
-  if (baselineAvg && state.averageBaselines) {
-    // Select ap and Baseline Avg, do NOT select ab1, ab2, ab3, ab4 by default
-    state.selectedScenarios = filtered
+  if (state.averageBaselines) {
+    // Select ap and Baseline Avg across all runs; exclude individual ab1..ab4
+    state.selectedScenarios = sorted
       .map(s => s.scenarioName)
-      .filter(name => !/^ab\d+/i.test(name)); // excludes individual ab1..ab4; keeps ap & Baseline Avg
-    state.baselineScenario = 'Baseline Avg';
-    state.activeScenario = filtered.find(s => s.scenarioName.toLowerCase() === 'ap')?.scenarioName || 'Baseline Avg';
+      .filter(name => !/(?:^|_)ab\d+$/i.test(name));
+
+    const firstAvg = sorted.find(s => s.scenarioName.toLowerCase().includes('baseline avg'));
+    state.baselineScenario = firstAvg ? firstAvg.scenarioName : sorted[0].scenarioName;
+
+    const firstAp = sorted.find(s => /(?:^|_)ap$/i.test(s.scenarioName) || s.scenarioName.toLowerCase() === 'ap');
+    state.activeScenario = firstAp ? firstAp.scenarioName : (firstAvg ? firstAvg.scenarioName : sorted[0].scenarioName);
   } else {
-    // If averaging is disabled, select all real scenarios
-    state.selectedScenarios = filtered.filter(s => s.scenarioName !== 'Baseline Avg').map(s => s.scenarioName);
-    state.activeScenario = filtered.find(s => s.scenarioName.toLowerCase() === 'ap')?.scenarioName || filtered[0]?.scenarioName || null;
-    state.baselineScenario = filtered.find(s => s.scenarioName.toLowerCase() === 'ab1')?.scenarioName || filtered[0]?.scenarioName || null;
+    // If averaging is disabled, select all real scenarios except Baseline Avg
+    state.selectedScenarios = sorted
+      .filter(s => !s.scenarioName.toLowerCase().includes('baseline avg'))
+      .map(s => s.scenarioName);
+
+    const firstAp = sorted.find(s => /(?:^|_)ap$/i.test(s.scenarioName) || s.scenarioName.toLowerCase() === 'ap');
+    state.activeScenario = firstAp ? firstAp.scenarioName : sorted[0].scenarioName;
+
+    const firstAb = sorted.find(s => /(?:^|_)ab1$/i.test(s.scenarioName) || s.scenarioName.toLowerCase() === 'ab1');
+    state.baselineScenario = firstAb ? firstAb.scenarioName : sorted[0].scenarioName;
   }
 
   if (elements.averageBaselinesToggle) {
@@ -1213,6 +1485,7 @@ function loadParsedScenarios(scenarios) {
   updateCsvFilenamePreview();
   renderScenariosPills();
   renderDropdownSelectors();
+  updateExportSectionsVisibility();
 
   elements.scenariosContainer.classList.remove('hidden');
   elements.dashboardArea.classList.remove('hidden');
@@ -1231,7 +1504,7 @@ function renderScenariosPills() {
 
   state.scenarios.forEach(sc => {
     const isSelected = state.selectedScenarios.includes(sc.scenarioName);
-    const isAvg = sc.isCalculatedAverage || sc.scenarioName === 'Baseline Avg';
+    const isAvg = sc.isCalculatedAverage || sc.scenarioName.toLowerCase().includes('baseline avg');
     const pill = document.createElement('div');
     pill.className = `scenario-pill ${isSelected ? 'active' : ''} ${isAvg ? 'pill-avg' : ''}`;
     pill.innerHTML = `
@@ -1256,9 +1529,10 @@ function toggleScenarioSelection(name) {
     state.selectedScenarios.push(name);
   }
 
-  // If user unselected Baseline Avg, uncheck average baselines toggle
-  if (name === 'Baseline Avg' && elements.averageBaselinesToggle) {
-    elements.averageBaselinesToggle.checked = state.selectedScenarios.includes('Baseline Avg');
+  // If user changed scenario selection, sync averageBaselines checkbox
+  const hasAvg = state.selectedScenarios.some(n => n.toLowerCase().includes('baseline avg'));
+  if (elements.averageBaselinesToggle) {
+    elements.averageBaselinesToggle.checked = hasAvg;
   }
 
   renderScenariosPills();
@@ -1268,21 +1542,26 @@ function toggleScenarioSelection(name) {
 function toggleAverageBaselines(enabled) {
   state.averageBaselines = enabled;
   if (enabled) {
-    // Select Baseline Avg, deselect individual ab1..ab4
-    state.selectedScenarios = state.selectedScenarios.filter(n => !/^ab\d+/i.test(n));
-    if (!state.selectedScenarios.includes('Baseline Avg') && state.scenarios.some(s => s.scenarioName === 'Baseline Avg')) {
-      state.selectedScenarios.push('Baseline Avg');
-    }
-    state.baselineScenario = 'Baseline Avg';
-  } else {
-    // Deselect Baseline Avg, select individual ab1..ab4
-    state.selectedScenarios = state.selectedScenarios.filter(n => n !== 'Baseline Avg');
+    // Deselect individual ab1..ab4 across all runs
+    state.selectedScenarios = state.selectedScenarios.filter(n => !/(?:^|_)ab\d+$/i.test(n));
+    // Select all Baseline Avg scenarios
     state.scenarios.forEach(s => {
-      if (/^ab\d+/i.test(s.scenarioName) && !state.selectedScenarios.includes(s.scenarioName)) {
+      if (s.scenarioName.toLowerCase().includes('baseline avg') && !state.selectedScenarios.includes(s.scenarioName)) {
         state.selectedScenarios.push(s.scenarioName);
       }
     });
-    const firstAb = state.scenarios.find(s => /^ab1/i.test(s.scenarioName));
+    const firstAvg = state.scenarios.find(s => s.scenarioName.toLowerCase().includes('baseline avg'));
+    if (firstAvg) state.baselineScenario = firstAvg.scenarioName;
+  } else {
+    // Deselect all Baseline Avg scenarios
+    state.selectedScenarios = state.selectedScenarios.filter(n => !n.toLowerCase().includes('baseline avg'));
+    // Select individual ab1..ab4 across all runs
+    state.scenarios.forEach(s => {
+      if (/(?:^|_)ab\d+$/i.test(s.rawScenarioName || s.scenarioName) && !state.selectedScenarios.includes(s.scenarioName)) {
+        state.selectedScenarios.push(s.scenarioName);
+      }
+    });
+    const firstAb = state.scenarios.find(s => /(?:^|_)ab1$/i.test(s.rawScenarioName || s.scenarioName));
     if (firstAb) state.baselineScenario = firstAb.scenarioName;
   }
   renderScenariosPills();
@@ -1291,23 +1570,27 @@ function toggleAverageBaselines(enabled) {
 }
 
 function renderDropdownSelectors() {
-  elements.singleScenarioSelect.innerHTML = '';
-  state.scenarios.forEach(sc => {
-    const opt = document.createElement('option');
-    opt.value = sc.scenarioName;
-    opt.textContent = sc.scenarioName + (sc.isCalculatedAverage ? ' (Baseline Average)' : '');
-    if (sc.scenarioName === state.activeScenario) opt.selected = true;
-    elements.singleScenarioSelect.appendChild(opt);
-  });
+  if (elements.singleScenarioSelect) {
+    elements.singleScenarioSelect.innerHTML = '';
+    state.scenarios.forEach(sc => {
+      const opt = document.createElement('option');
+      opt.value = sc.scenarioName;
+      opt.textContent = sc.scenarioName + (sc.isCalculatedAverage || sc.scenarioName.toLowerCase().includes('baseline avg') ? ' (Baseline Average)' : '');
+      if (sc.scenarioName === state.activeScenario) opt.selected = true;
+      elements.singleScenarioSelect.appendChild(opt);
+    });
+  }
 
-  elements.baselineScenarioSelect.innerHTML = '';
-  state.scenarios.forEach(sc => {
-    const opt = document.createElement('option');
-    opt.value = sc.scenarioName;
-    opt.textContent = `Baseline: ${sc.scenarioName}` + (sc.isCalculatedAverage ? ' (Average)' : '');
-    if (sc.scenarioName === state.baselineScenario) opt.selected = true;
-    elements.baselineScenarioSelect.appendChild(opt);
-  });
+  if (elements.baselineScenarioSelect) {
+    elements.baselineScenarioSelect.innerHTML = '';
+    state.scenarios.forEach(sc => {
+      const opt = document.createElement('option');
+      opt.value = sc.scenarioName;
+      opt.textContent = `Baseline: ${sc.scenarioName}` + (sc.isCalculatedAverage || sc.scenarioName.toLowerCase().includes('baseline avg') ? ' (Average)' : '');
+      if (sc.scenarioName === state.baselineScenario) opt.selected = true;
+      elements.baselineScenarioSelect.appendChild(opt);
+    });
+  }
 }
 
 // =============================================================================
@@ -1457,7 +1740,7 @@ function updateChart(scenarios) {
         if (baseVal === 0) return 0;
         return Number((((currVal - baseVal) / baseVal) * 100).toFixed(2));
       });
-      const color = SCENARIO_COLORS[sc.scenarioName.toLowerCase()] || CHART_COLORS[idx % CHART_COLORS.length];
+      const color = getScenarioColor(sc.scenarioName, idx);
       return { label: `${sc.scenarioName} vs ${baselineSc.scenarioName} (Δ %)`, data: deltaData, backgroundColor: color, borderColor: color, borderWidth: 1 };
     });
     chartConfig = {
@@ -1487,7 +1770,7 @@ function updateChart(scenarios) {
   // Horizontal Bar
   else if (state.chartType === 'horizontalBar') {
     const datasets = scenarios.map((sc, idx) => {
-      const color = SCENARIO_COLORS[sc.scenarioName.toLowerCase()] || CHART_COLORS[idx % CHART_COLORS.length];
+      const color = getScenarioColor(sc.scenarioName, idx);
       return { label: sc.scenarioName, data: visibleCats.map(fc => { const r = sc.categoryMap[fc.raw]; return r ? getCategoryEnergyValue(r, state.fuelType, state.energyUnit) : 0; }), backgroundColor: color, borderColor: color, borderWidth: 1 };
     });
     chartConfig = { type: 'bar', data: { labels, datasets }, options: { ...getCommonChartOptions(false), indexAxis: 'y' } };
@@ -1497,7 +1780,7 @@ function updateChart(scenarios) {
   else if (state.chartType === 'radar') {
     const isDark = document.body.classList.contains('dark-theme');
     const datasets = scenarios.map((sc, idx) => {
-      const color = SCENARIO_COLORS[sc.scenarioName.toLowerCase()] || CHART_COLORS[idx % CHART_COLORS.length];
+      const color = getScenarioColor(sc.scenarioName, idx);
       return { label: sc.scenarioName, data: visibleCats.map(fc => { const r = sc.categoryMap[fc.raw]; return r ? getCategoryEnergyValue(r, state.fuelType, state.energyUnit) : 0; }), backgroundColor: `${color}33`, borderColor: color, borderWidth: 2, pointBackgroundColor: color };
     });
     chartConfig = {
@@ -1510,7 +1793,7 @@ function updateChart(scenarios) {
   else {
     const isStacked = state.chartType === 'stacked-bar';
     const datasets = scenarios.map((sc, idx) => {
-      const color = SCENARIO_COLORS[sc.scenarioName.toLowerCase()] || CHART_COLORS[idx % CHART_COLORS.length];
+      const color = getScenarioColor(sc.scenarioName, idx);
       return { label: sc.scenarioName, data: visibleCats.map(fc => { const r = sc.categoryMap[fc.raw]; return r ? getCategoryEnergyValue(r, state.fuelType, state.energyUnit) : 0; }), backgroundColor: color, borderColor: color, borderWidth: 1 };
     });
     chartConfig = { type: 'bar', data: { labels, datasets }, options: getCommonChartOptions(isStacked) };
@@ -1551,8 +1834,9 @@ function updateTable(scenarios) {
 
   // ---- Header row 1: Scenario group spans ----
   let head1 = `<tr><th class="cat-col" rowspan="2">End-Use Category</th>`;
-  scenarios.forEach(sc => {
-    head1 += `<th class="scenario-group-header" colspan="4" style="background:${(SCENARIO_COLORS[sc.scenarioName.toLowerCase()] || '#4D76AD')}22; border-bottom: 3px solid ${SCENARIO_COLORS[sc.scenarioName.toLowerCase()] || '#4D76AD'};">${sc.scenarioName}</th>`;
+  scenarios.forEach((sc, sIdx) => {
+    const color = getScenarioColor(sc.scenarioName, sIdx);
+    head1 += `<th class="scenario-group-header" colspan="4" style="background:${color}22; border-bottom: 3px solid ${color};">${sc.scenarioName}</th>`;
   });
   head1 += `</tr>`;
 
@@ -1795,8 +2079,8 @@ function exportExcelWorkbook() {
  * Scope: 'all' (ap, ab1-ab4, Baseline Avg) or 'active' (selected scenarios only).
  */
 function buildCsvRowsForExport() {
-  const runId    = elements.csvRunId.value.trim()    || 'RUN-001';
-  const revision = elements.csvRevision.value.trim() || 'Rev.0';
+  const runId    = (elements.csvRunId && elements.csvRunId.value.trim()) || 'Run_01';
+  const revision = (elements.csvRevision && elements.csvRevision.value.trim()) || 'r33';
   const scope    = elements.csvExportScope ? elements.csvExportScope.value : 'all';
 
   // Determine which scenarios to export
@@ -1804,13 +2088,7 @@ function buildCsvRowsForExport() {
   if (scope === 'active') {
     exportScenarios = state.scenarios.filter(s => state.selectedScenarios.includes(s.scenarioName));
   } else {
-    // 'all': canonical order — ap first, then ab1–ab4, then Baseline Avg
-    const order = { 'ap': 1, 'ab1': 2, 'ab2': 3, 'ab3': 4, 'ab4': 5, 'baseline avg': 6 };
-    exportScenarios = [...state.scenarios].sort((a, b) => {
-      const ordA = order[a.scenarioName.toLowerCase()] || 99;
-      const ordB = order[b.scenarioName.toLowerCase()] || 99;
-      return ordA - ordB;
-    });
+    exportScenarios = sortScenarios(state.scenarios);
   }
 
   if (exportScenarios.length === 0) return [];
@@ -1825,41 +2103,49 @@ function buildCsvRowsForExport() {
 
   // One data row per scenario
   exportScenarios.forEach(sc => {
-    const cmap = sc.categoryMap || {};
-    const row = [runId, revision, sc.scenarioName];
-
-    // 26 electricity columns (kWh + W per category)
-    CSV_ELECS.forEach(catRaw => {
-      const r = cmap[catRaw];
-      row.push(r ? formatNumRaw(r.elecKwh, 2) : '0.00');
-      row.push(r ? formatNumRaw(r.elecDemW, 2) : '0.00');
-    });
-
-    // 6 natural gas columns (therm + Btu/h per category)
-    CSV_GASES.forEach(catRaw => {
-      const r = cmap[catRaw];
-      row.push(r ? formatNumRaw(r.gasTherm, 2) : '0.00');
-      row.push(r ? formatNumRaw(r.gasDemBtuh, 2) : '0.00');
-    });
-
+    const rawName = sc.rawScenarioName || sc.scenarioName;
+    const rId = sc.runId || runId;
+    const rev = sc.revision || revision;
+    const row = formatScenarioCsvRow(sc, rId, rev, rawName);
     rows.push(row);
   });
 
   return rows;
 }
 
-function downloadCSVLog() {
+async function browseFolderForExport() {
+  if (!window.showDirectoryPicker) {
+    showToast('Not Supported', 'Your browser does not support the folder picker. Try Chrome or Edge.', '⚠️');
+    return;
+  }
+  try {
+    const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+    state.csvExportDirHandle = dirHandle;
+    if (elements.csvExportLocation) {
+      elements.csvExportLocation.value = dirHandle.name;
+    }
+    if (elements.csvLocationStatus) {
+      elements.csvLocationStatus.textContent = '✅ Folder selected — file will be saved directly';
+      elements.csvLocationStatus.className = 'csv-location-status status-ok';
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      showToast('Folder Error', err.message, '⚠️');
+    }
+    // User cancelled — clear status if nothing was previously chosen
+    if (!state.csvExportDirHandle && elements.csvLocationStatus) {
+      elements.csvLocationStatus.textContent = '';
+    }
+  }
+}
+
+async function downloadCSVLog() {
   if (state.scenarios.length === 0 && (!state.loadedCsvRows || state.loadedCsvRows.length <= 2)) {
     showToast('No Data', 'Load scenarios before exporting CSV.', '⚠️');
     return;
   }
 
-  let rows;
-  if (state.isAppendedData && state.loadedCsvRows && state.loadedCsvRows.length > 2) {
-    rows = state.loadedCsvRows;
-  } else {
-    rows = buildCsvRowsForExport();
-  }
+  const rows = buildCsvRowsForExport();
 
   if (!rows || rows.length === 0) {
     showToast('No Scenarios', 'No scenarios matched the selected export scope.', '⚠️');
@@ -1869,16 +2155,37 @@ function downloadCSVLog() {
   const csvContent = rows.map(row =>
     row.map(cell => {
       const s = String(cell);
-      // Wrap in quotes if cell contains comma, quote, or newline
       return (s.includes(',') || s.includes('"') || s.includes('\n'))
         ? `"${s.replace(/"/g, '""')}"`
         : s;
     }).join(',')
   ).join('\r\n');
 
-  const rawFolder = state.selectedFolderName || state.baseCsvFilename || 'Energy_Compliance';
-  const filename = getCleanCsvFilename(rawFolder);
+  const filename = (elements.csvExportFilename && elements.csvExportFilename.value.trim())
+    || getCleanCsvFilename(state.selectedFolderName || 'Energy_Compliance');
+  const dataRowCount = rows.length - 2;
 
+  // --- Path 1: write directly to the picked folder (File System Access API) ---
+  if (state.csvExportDirHandle) {
+    try {
+      const fileHandle = await state.csvExportDirHandle.getFileHandle(filename, { create: true });
+      const writable  = await fileHandle.createWritable();
+      await writable.write(csvContent);
+      await writable.close();
+      showToast('CSV Saved', `Saved to "${state.csvExportDirHandle.name}\\${filename}" — ${dataRowCount} scenario row(s).`, '💾');
+      return;
+    } catch (err) {
+      // Permission revoked or write failed — fall through to standard download
+      showToast('Write Failed', `Could not write to folder: ${err.message}. Falling back to browser download.`, '⚠️');
+      state.csvExportDirHandle = null;
+      if (elements.csvLocationStatus) {
+        elements.csvLocationStatus.textContent = '⚠️ Permission lost — re-select folder or use browser download';
+        elements.csvLocationStatus.className = 'csv-location-status status-warn';
+      }
+    }
+  }
+
+  // --- Path 2: standard browser download ---
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -1889,8 +2196,8 @@ function downloadCSVLog() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  const dataRowCount = rows.length - 2; // exclude 2 header rows
-  showToast('CSV Exported', `Saved: ${filename} — ${dataRowCount} scenario row(s). Paste into your compliance log in Excel.`, '💾');
+  const location = (elements.csvExportLocation && elements.csvExportLocation.value.trim()) || '(Downloads folder)';
+  showToast('CSV Downloaded', `${filename} — ${dataRowCount} scenario row(s). Check your Downloads folder.`, '💾');
 }
 
 function downloadChartImage() {
@@ -2021,8 +2328,27 @@ function setupEventListeners() {
     });
   }
 
-  if (elements.executeAppendBtn) {
-    elements.executeAppendBtn.addEventListener('click', executeAppend);
+  if (elements.executeLoadDashboardBtn) {
+    elements.executeLoadDashboardBtn.addEventListener('click', executeLoadDashboard);
+  }
+
+  // Method 3 Checklist Bulk Actions
+  if (elements.appendSelectAllBtn) {
+    elements.appendSelectAllBtn.addEventListener('click', () => {
+      if (elements.appendScenarioChecklist) {
+        elements.appendScenarioChecklist.querySelectorAll('.append-scenario-cb').forEach(cb => { cb.checked = true; });
+      }
+    });
+  }
+  if (elements.appendDeselectAllBtn) {
+    elements.appendDeselectAllBtn.addEventListener('click', () => {
+      if (elements.appendScenarioChecklist) {
+        elements.appendScenarioChecklist.querySelectorAll('.append-scenario-cb').forEach(cb => { cb.checked = false; });
+      }
+    });
+  }
+  if (elements.appendDownloadCsvBtn) {
+    elements.appendDownloadCsvBtn.addEventListener('click', downloadAppendedCsv);
   }
 
   // Average Baselines Toggle
@@ -2083,7 +2409,16 @@ function setupEventListeners() {
   if (elements.exportExcelBtn) {
     elements.exportExcelBtn.addEventListener('click', exportExcelWorkbook);
   }
-  elements.exportCsvBtn.addEventListener('click', downloadCSVLog);
+  if (elements.exportCsvBtn) {
+    elements.exportCsvBtn.addEventListener('click', downloadCSVLog);
+  }
+  if (elements.csvBrowseFolderBtn) {
+    elements.csvBrowseFolderBtn.addEventListener('click', browseFolderForExport);
+  }
+  if (elements.csvExportLocation) {
+    elements.csvExportLocation.addEventListener('click', browseFolderForExport);
+    elements.csvExportLocation.style.cursor = 'pointer';
+  }
   elements.downloadChartBtn.addEventListener('click', downloadChartImage);
 }
 

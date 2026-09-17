@@ -1397,40 +1397,43 @@ body.dark-theme .footer-address strong {
 }
 
 /* ==========================================================================
-   CSV Log Export Card
+   CSV Log Export & Append Cards
    ========================================================================== */
 
 .csv-export-card {
   margin-top: 0;
 }
 
-.csv-export-card .card-header {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.csv-export-card .card-header .table-subtitle {
-  margin-left: 0;
-}
-
-.csv-export-form {
-  display: flex;
-  align-items: flex-end;
+.csv-path-config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
-  padding: 20px 0 16px;
-  flex-wrap: wrap;
+  margin-top: 14px;
 }
 
-.csv-filename-info {
-  font-size: 0.82rem;
+@media (max-width: 768px) {
+  .csv-path-config-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.csv-path-config-grid .csv-field-group {
+  flex: 1;
+}
+
+.csv-path-config-grid .csv-input {
+  width: 100%;
+}
+
+.csv-target-info {
+  font-size: 0.84rem;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.csv-filename-info code {
+.csv-target-info code {
   font-family: var(--font-mono);
   font-size: 0.82rem;
   font-weight: 600;
@@ -1441,9 +1444,17 @@ body.dark-theme .footer-address strong {
   border: 1px solid var(--border-color);
 }
 
-body.dark-theme .csv-filename-info code {
+body.dark-theme .csv-target-info code {
   color: #8EBAF7;
   background: rgba(77, 118, 173, 0.2);
+}
+
+.csv-export-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 16px 0;
+  flex-wrap: wrap;
 }
 
 .csv-field-group {
@@ -1453,13 +1464,17 @@ body.dark-theme .csv-filename-info code {
 }
 
 .csv-input {
-  width: 180px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
   font-family: var(--font-mono);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  color: var(--text-primary);
 }
 
 .csv-export-btn {
-  height: 40px;
+  height: 38px;
   padding: 0 20px;
   display: flex;
   align-items: center;
@@ -1472,19 +1487,127 @@ body.dark-theme .csv-filename-info code {
   font-size: 0.78rem;
   color: var(--text-secondary);
   margin: 0;
-  padding: 12px 16px;
+  padding: 10px 14px;
   background: var(--bg-surface);
   border-radius: var(--radius-md);
   border-left: 3px solid var(--ob360-green);
   line-height: 1.5;
 }
 
-.csv-note code {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  background: var(--bg-card);
-  padding: 1px 5px;
-  border-radius: 3px;
+/* Folder picker row */
+.csv-location-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.csv-location-row .csv-input {
+  flex: 1;
+  min-width: 0;
+  cursor: default;
+  color: var(--text-secondary);
+}
+
+.csv-browse-btn {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 36px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.csv-location-status {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 4px;
+  min-height: 1.2em;
+  transition: color 0.2s;
+}
+
+.csv-location-status.status-ok {
+  color: var(--ob360-green, #4caf50);
+}
+
+.csv-location-status.status-warn {
+  color: #e6a817;
+}
+
+/* Method 3: Append Section Body */
+.append-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.append-instructions {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.append-scenario-selector {
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  color: var(--ob360-slate-blue);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.append-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.84rem;
+}
+
+.append-selector-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.append-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.append-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.append-check-item:hover {
+  border-color: var(--ob360-green);
+  background: var(--bg-surface-hover);
+}
+
+.append-check-item input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--ob360-green);
+  width: 16px;
+  height: 16px;
+}
+
+.append-submit-row {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 4px;
 }
