@@ -46,23 +46,171 @@ const CHART_COLORS = [
 // electricityOnly: true means Gas columns show dash
 // gasOnly: true means Electricity columns show dash
 // =============================================================================
+// =============================================================================
+// Dashboard Category Definitions (11 Compliance Categories)
+// Mapped to raw categories extracted from CBECC HTM files.
+// =============================================================================
 const FIXED_CATEGORIES = [
-  { raw: 'Heating -- General',                        label: 'Heating',              electricityOnly: false, gasOnly: false },
-  { raw: 'Cooling -- General',                        label: 'Cooling',              electricityOnly: true,  gasOnly: false },
-  { raw: 'Interior Lighting -- ComplianceLtg',        label: 'Interior Lighting',    electricityOnly: true,  gasOnly: false },
-  { raw: 'Exterior Lighting -- Not Subdivided',       label: 'Exterior Lighting',    electricityOnly: true,  gasOnly: false },
-  { raw: 'Interior Equipment -- Receptacle',          label: 'Receptacle',           electricityOnly: true,  gasOnly: false },
-  { raw: 'Interior Equipment -- Internal Transport',  label: 'Elevators/Escalators', electricityOnly: true,  gasOnly: false },
-  { raw: 'Exterior Equipment -- Not Subdivided',      label: 'Exterior Equipment',   electricityOnly: true,  gasOnly: false },
-  { raw: 'Fans -- Interior Fans',                     label: 'Fans',                 electricityOnly: true,  gasOnly: false },
-  { raw: 'Pumps -- General',                          label: 'Pumps',                electricityOnly: true,  gasOnly: false },
-  { raw: 'Heat Rejection -- Not Subdivided',          label: 'Heat Rejection',       electricityOnly: true,  gasOnly: false },
-  { raw: 'Humidification -- Not Subdivided',          label: 'Humidification',       electricityOnly: false, gasOnly: false },
-  { raw: 'Heat Recovery -- Not Subdivided',           label: 'Heat Recovery',        electricityOnly: true,  gasOnly: false },
-  { raw: 'Water Systems -- General',                  label: 'Water Systems (SHW)',  electricityOnly: false, gasOnly: false },
-  { raw: 'Refrigeration -- Not Subdivided',           label: 'Refrigeration',        electricityOnly: true,  gasOnly: false },
-  { raw: 'Generators -- General',                     label: 'Generators',           electricityOnly: false, gasOnly: false },
+  {
+    raw: 'Space Heating',
+    label: 'Space Heating',
+    electricityOnly: false,
+    gasOnly: false,
+    elecHtmCategories: ['Heating -- General', 'Heating -- Boiler Parasitic'],
+    gasHtmCategories: ['Heating -- General']
+  },
+  {
+    raw: 'Space Cooling',
+    label: 'Space Cooling',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Cooling -- General'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Interior Lighting',
+    label: 'Interior Lighting',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Interior Lighting -- ComplianceLtg'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Exterior lighting',
+    label: 'Exterior Lighting',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Exterior Lighting -- General', 'Exterior Lighting -- Not Subdivided'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Receptacle Equipment',
+    label: 'Receptacle Equipment',
+    electricityOnly: false,
+    gasOnly: false,
+    elecHtmCategories: [
+      'Interior Equipment -- Receptacle',
+      'Interior Equipment -- Refrig',
+      'Interior Equipment -- Process',
+      'Exterior Equipment -- Not Subdivided'
+    ],
+    gasHtmCategories: [
+      'Interior Equipment -- Receptacle',
+      'Interior Equipment -- Process',
+      'Exterior Equipment -- Not Subdivided'
+    ]
+  },
+  {
+    raw: 'Elevators and escalators',
+    label: 'Elevators & Escalators',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Interior Equipment -- Internal Transport'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Fans-Interior',
+    label: 'Fans - Interior',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Fans -- General', 'Fans -- Interior Fans'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Fans-Parking Garage',
+    label: 'Fans - Parking Garage',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Fans -- ProcessMotors', 'Fans -- Parking Garage'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Pumps',
+    label: 'Pumps',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Pumps -- General'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Heat Rejection',
+    label: 'Heat Rejection',
+    electricityOnly: true,
+    gasOnly: false,
+    elecHtmCategories: ['Heat Rejection -- Not Subdivided', 'Heat Rejection -- General'],
+    gasHtmCategories: []
+  },
+  {
+    raw: 'Service Water Heating',
+    label: 'Service Water Heating',
+    electricityOnly: false,
+    gasOnly: false,
+    elecHtmCategories: [
+      'Water Systems -- General',
+      'Water Systems -- Water Heater Parasitic',
+      'Water Systems -- Other'
+    ],
+    gasHtmCategories: ['Water Systems -- General']
+  }
 ];
+
+/**
+ * Aggregates a rawCategoryMap (keyed by HTM categories) into the 11 dashboard compliance categories.
+ * Category values are summed (e.g. Fans-Interior = Fans -- General + Fans -- Interior Fans).
+ */
+function buildDashboardCategoryMap(rawCategoryMap) {
+  const categoryMap = {};
+
+  FIXED_CATEGORIES.forEach(fc => {
+    let elecKwh = 0;
+    let elecDemW = 0;
+    let gasTherm = 0;
+    let gasDemBtuh = 0;
+
+    (fc.elecHtmCategories || []).forEach(cat => {
+      const r = rawCategoryMap ? rawCategoryMap[cat] : null;
+      if (r) {
+        elecKwh += (r.elecKwh || 0);
+        elecDemW += (r.elecDemW || 0);
+      }
+    });
+
+    (fc.gasHtmCategories || []).forEach(cat => {
+      const r = rawCategoryMap ? rawCategoryMap[cat] : null;
+      if (r) {
+        gasTherm += (r.gasTherm || 0);
+        gasDemBtuh += (r.gasDemBtuh || 0);
+      }
+    });
+
+    // If rawCategoryMap already has this dashboard category directly
+    if (rawCategoryMap && rawCategoryMap[fc.raw] && !fc.elecHtmCategories.includes(fc.raw)) {
+      const direct = rawCategoryMap[fc.raw];
+      elecKwh += (direct.elecKwh || 0);
+      elecDemW += (direct.elecDemW || 0);
+      gasTherm += (direct.gasTherm || 0);
+      gasDemBtuh += (direct.gasDemBtuh || 0);
+    }
+
+    const elecKbtu = elecKwh * CONVERSIONS.KWH_TO_KBTU;
+    const gasKbtu  = gasTherm * CONVERSIONS.THERM_TO_KBTU;
+
+    categoryMap[fc.raw] = {
+      rawCategory: fc.raw,
+      label: fc.label,
+      isTotal: false,
+      elecKwh,
+      elecDemW,
+      gasTherm,
+      gasDemBtuh,
+      elecKbtu,
+      gasKbtu,
+      totalKbtu: elecKbtu + gasKbtu
+    };
+  });
+
+  return categoryMap;
+}
 
 // 26 electricity categories in exact sequence from user template
 const CSV_ELECS = [
@@ -104,77 +252,116 @@ const CSV_GASES = [
   'Generators -- General',
 ];
 
-// Standard 67-column header rows matching the user's template
+// Standard 67-column 3-header rows matching user's updated template
+// Row 1: Dashboard Categories
 const CSV_HEADER_ROW_1 = [
-  'Run ID', 'Rev #', 'Run ID',
-  'Heating -- General', '',
-  'Heating -- Boiler Parasitic', '',
-  'Cooling -- General', '',
-  'Interior Lighting -- ComplianceLtg', '',
-  'Exterior Lighting -- General', '',
-  'Exterior Lighting -- Not Subdivided', '',
-  'Interior Equipment -- Receptacle', '',
-  'Interior Equipment -- Refrig', '',
-  'Interior Equipment -- Process', '',
-  'Interior Equipment -- Internal Transport', '',
-  'Exterior Equipment -- Not Subdivided', '',
-  'Fans -- General', '',
-  'Fans -- ProcessMotors', '',
-  'Fans -- Parking Garage', '',
-  'Fans -- Interior Fans', '',
-  'Pumps -- General', '',
-  'Heat Rejection -- Not Subdivided', '',
-  'Heat Rejection -- General', '',
-  'Humidification -- Not Subdivided', '',
-  'Heat Recovery -- General', '',
-  'Heat Recovery -- Not Subdivided', '',
-  'Water Systems -- General', '',
-  'Water Systems -- Water Heater Parasitic', '',
-  'Water Systems -- Other', '',
-  'Refrigeration -- Not Subdivided', '',
-  'Generators -- General', '',
-  'Heating -- General', '',
-  'Interior Equipment -- Receptacle', '',
-  'Interior Equipment -- Process', '',
-  'Exterior Equipment -- Not Subdivided', '',
-  'Water Systems -- General', '',
-  'Generators -- General', ''
+  "", "", "",
+  "Space Heating", "",
+  "Space Heating", "",
+  "Space Cooling", "",
+  "Interior Lighting", "",
+  "Exterior lighting", "",
+  "Exterior lighting", "",
+  "Receptacle Equipment", "",
+  "Receptacle Equipment", "",
+  "Receptacle Equipment", "",
+  "Elevators and escalators", "",
+  "Receptacle Equipment", "",
+  "Fans-Interior", "",
+  "Fans-Parking Garage", "",
+  "Fans-Parking Garage", "",
+  "Fans-Interior", "",
+  "Pumps", "",
+  "Heat Rejection", "",
+  "Heat Rejection", "",
+  "", "",
+  "", "",
+  "", "",
+  "Service Water Heating", "",
+  "Service Water Heating", "",
+  "Service Water Heating", "",
+  "", "",
+  "", "",
+  "Space Heating", "",
+  "Receptacle Equipment", "",
+  "Receptacle Equipment", "",
+  "Receptacle Equipment", "",
+  "Service Water Heating", "",
+  "", ""
 ];
 
+// Row 2: HTM Categories
 const CSV_HEADER_ROW_2 = [
-  '', '', '',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[kWh]', '[W]',
-  '[therm]', '[Btu/h]',
-  '[therm]', '[Btu/h]',
-  '[therm]', '[Btu/h]',
-  '[therm]', '[Btu/h]',
-  '[therm]', '[Btu/h]',
-  '[therm]', '[Btu/h]'
+  "Run ID", "Rev #", "Run ID",
+  "Heating -- General", "",
+  "Heating -- Boiler Parasitic", "",
+  "Cooling -- General", "",
+  "Interior Lighting -- ComplianceLtg", "",
+  "Exterior Lighting -- General", "",
+  "Exterior Lighting -- Not Subdivided", "",
+  "Interior Equipment -- Receptacle", "",
+  "Interior Equipment -- Refrig", "",
+  "Interior Equipment -- Process", "",
+  "Interior Equipment -- Internal Transport", "",
+  "Exterior Equipment -- Not Subdivided", "",
+  "Fans -- General", "",
+  "Fans -- ProcessMotors", "",
+  "Fans -- Parking Garage", "",
+  "Fans -- Interior Fans", "",
+  "Pumps -- General", "",
+  "Heat Rejection -- Not Subdivided", "",
+  "Heat Rejection -- General", "",
+  "Humidification -- Not Subdivided", "",
+  "Heat Recovery -- General", "",
+  "Heat Recovery -- Not Subdivided", "",
+  "Water Systems -- General", "",
+  "Water Systems -- Water Heater Parasitic", "",
+  "Water Systems -- Other", "",
+  "Refrigeration -- Not Subdivided", "",
+  "Generators -- General", "",
+  "Heating -- General", "",
+  "Interior Equipment -- Receptacle", "",
+  "Interior Equipment -- Process", "",
+  "Exterior Equipment -- Not Subdivided", "",
+  "Water Systems -- General", "",
+  "Generators -- General", ""
+];
+
+// Row 3: Units
+const CSV_HEADER_ROW_3 = [
+  "", "", "",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[kWh]", "[W]",
+  "[therm]", "[Btu/h]",
+  "[therm]", "[Btu/h]",
+  "[therm]", "[Btu/h]",
+  "[therm]", "[Btu/h]",
+  "[therm]", "[Btu/h]",
+  "[therm]", "[Btu/h]"
 ];
 
 // Canonical scenario order (ap first, then Baseline Avg, then ab1-ab4)
@@ -267,6 +454,7 @@ const state = {
   chartInstance: null,
   isServerOnline: false,
   csvExportDirHandle: null,   // FileSystemDirectoryHandle from showDirectoryPicker()
+  method3BaseFileHandle: null,// FileSystemFileHandle for base CSV in Method 3
 };
 
 // =============================================================================
@@ -465,7 +653,8 @@ function extractComplianceFromHTML(htmlString, sourceName = '') {
   if (gasDemandIdx  === -1) gasDemandIdx  = 4;
 
   // Build a lookup map: rawCategory -> data object
-  const categoryMap = {};
+  // Build a lookup map: rawCategory -> data object from HTM table
+  const rawCategoryMap = {};
 
   for (let i = 1; i < rows.length; i++) {
     const cells = Array.from(rows[i].querySelectorAll('td, th')).map(c => c.textContent.trim());
@@ -481,7 +670,7 @@ function extractComplianceFromHTML(htmlString, sourceName = '') {
     const elecKbtu = elecKwh  * CONVERSIONS.KWH_TO_KBTU;
     const gasKbtu  = gasTherm * CONVERSIONS.THERM_TO_KBTU;
 
-    categoryMap[catLabel] = {
+    rawCategoryMap[catLabel] = {
       rawCategory: catLabel,
       isTotal,
       elecKwh,
@@ -494,7 +683,10 @@ function extractComplianceFromHTML(htmlString, sourceName = '') {
     };
   }
 
-  // Calculate totals from non-total rows
+  // Build the aggregated 11 dashboard compliance categories
+  const categoryMap = buildDashboardCategoryMap(rawCategoryMap);
+
+  // Calculate totals from dashboard categories
   let totalElecKwh = 0;
   let totalGasTherm = 0;
   Object.values(categoryMap).forEach(r => {
@@ -511,6 +703,7 @@ function extractComplianceFromHTML(htmlString, sourceName = '') {
   return {
     sourceName,
     categoryMap,
+    rawCategoryMap,
     summary: {
       totalElectricity_kWh:  totalElecKwh,
       totalNaturalGas_therm: totalGasTherm,
@@ -654,47 +847,49 @@ function parseCsvToRows(text) {
 function parseComplianceCSV(csvText, filename = '', formatCompositeName = false) {
   const rows = parseCsvToRows(csvText);
   if (rows.length < 3) {
-    return { success: false, error: 'CSV file must have 2 header rows and at least 1 data row.' };
+    return { success: false, error: 'CSV file must have header rows and at least 1 data row.' };
   }
+
+  // Detect 2 vs 3 header rows
+  // In 3-header format: row 0 has dashboard categories, row 1 has 'Run ID', row 2 has units '[kWh]', data starts row 3
+  // In 2-header format: row 0 has 'Run ID', row 1 has units '[kWh]', data starts row 2
+  const isThreeHeader = rows.length > 3 && (
+    (rows[1] && rows[1][0] && rows[1][0].trim().toLowerCase() === 'run id') ||
+    (rows[0] && rows[0][3] && rows[0][3].trim().length > 0 && !rows[0][0])
+  );
+  const dataStartIdx = isThreeHeader ? 3 : 2;
 
   const scenarios = [];
 
-  for (let i = 2; i < rows.length; i++) {
+  for (let i = dataStartIdx; i < rows.length; i++) {
     const row = rows[i];
     if (row.length < 3 || !row[2]) continue;
 
-    const runId = row[0] || 'Run_01';
-    const rev = row[1] || 'Rev.0';
+    const runId = (row[0] || 'Run_01').trim();
+    const rev = (row[1] || 'Rev.0').trim();
     const rawScenario = row[2].trim();
     const scenarioName = formatCompositeName
       ? `${runId}_${rev}_${rawScenario}`
       : rawScenario;
 
-    const categoryMap = {};
-    FIXED_CATEGORIES.forEach(fc => {
-      categoryMap[fc.raw] = {
-        rawCategory: fc.raw,
-        isTotal: false,
-        elecKwh: 0,
-        elecDemW: 0,
-        gasTherm: 0,
-        gasDemBtuh: 0,
-        elecKbtu: 0,
-        gasKbtu: 0,
-        totalKbtu: 0
-      };
-    });
+    const rawCategoryMap = {};
 
     CSV_ELECS.forEach((catRaw, idx) => {
       const kwhCol = 3 + (idx * 2);
       const wCol   = 4 + (idx * 2);
       const kwh = kwhCol < row.length ? parseNumber(row[kwhCol]) : 0;
       const w   = wCol < row.length ? parseNumber(row[wCol]) : 0;
-      if (!categoryMap[catRaw]) {
-        categoryMap[catRaw] = { rawCategory: catRaw, isTotal: false, elecKwh: 0, elecDemW: 0, gasTherm: 0, gasDemBtuh: 0, elecKbtu: 0, gasKbtu: 0, totalKbtu: 0 };
-      }
-      categoryMap[catRaw].elecKwh = kwh;
-      categoryMap[catRaw].elecDemW = w;
+      rawCategoryMap[catRaw] = {
+        rawCategory: catRaw,
+        isTotal: false,
+        elecKwh: kwh,
+        elecDemW: w,
+        gasTherm: 0,
+        gasDemBtuh: 0,
+        elecKbtu: kwh * CONVERSIONS.KWH_TO_KBTU,
+        gasKbtu: 0,
+        totalKbtu: kwh * CONVERSIONS.KWH_TO_KBTU
+      };
     });
 
     CSV_GASES.forEach((catRaw, idx) => {
@@ -702,19 +897,31 @@ function parseComplianceCSV(csvText, filename = '', formatCompositeName = false)
       const btuhCol  = 56 + (idx * 2);
       const therm = thermCol < row.length ? parseNumber(row[thermCol]) : 0;
       const btuh  = btuhCol < row.length ? parseNumber(row[btuhCol]) : 0;
-      if (!categoryMap[catRaw]) {
-        categoryMap[catRaw] = { rawCategory: catRaw, isTotal: false, elecKwh: 0, elecDemW: 0, gasTherm: 0, gasDemBtuh: 0, elecKbtu: 0, gasKbtu: 0, totalKbtu: 0 };
+      if (!rawCategoryMap[catRaw]) {
+        rawCategoryMap[catRaw] = {
+          rawCategory: catRaw,
+          isTotal: false,
+          elecKwh: 0,
+          elecDemW: 0,
+          gasTherm: 0,
+          gasDemBtuh: 0,
+          elecKbtu: 0,
+          gasKbtu: 0,
+          totalKbtu: 0
+        };
       }
-      categoryMap[catRaw].gasTherm = therm;
-      categoryMap[catRaw].gasDemBtuh = btuh;
+      rawCategoryMap[catRaw].gasTherm = therm;
+      rawCategoryMap[catRaw].gasDemBtuh = btuh;
+      rawCategoryMap[catRaw].gasKbtu = therm * CONVERSIONS.THERM_TO_KBTU;
+      rawCategoryMap[catRaw].totalKbtu = (rawCategoryMap[catRaw].elecKbtu || 0) + rawCategoryMap[catRaw].gasKbtu;
     });
+
+    // Build the aggregated 11 dashboard categories from rawCategoryMap
+    const categoryMap = buildDashboardCategoryMap(rawCategoryMap);
 
     let totalElecKwh = 0;
     let totalGasTherm = 0;
     Object.values(categoryMap).forEach(c => {
-      c.elecKbtu = c.elecKwh * CONVERSIONS.KWH_TO_KBTU;
-      c.gasKbtu  = c.gasTherm * CONVERSIONS.THERM_TO_KBTU;
-      c.totalKbtu = c.elecKbtu + c.gasKbtu;
       totalElecKwh += c.elecKwh;
       totalGasTherm += c.gasTherm;
     });
@@ -734,6 +941,7 @@ function parseComplianceCSV(csvText, filename = '', formatCompositeName = false)
       isCalculatedAverage: isAvg,
       fileBaseName: `${scenarioName}.csv`,
       categoryMap,
+      rawCategoryMap,
       summary: {
         totalElectricity_kWh: totalElecKwh,
         totalNaturalGas_therm: totalGasTherm,
@@ -755,7 +963,7 @@ function parseComplianceCSV(csvText, filename = '', formatCompositeName = false)
 // =============================================================================
 
 function formatScenarioCsvRow(sc, runId, revision, rawScenarioName = '') {
-  const cmap = sc.categoryMap || {};
+  const cmap = sc.rawCategoryMap || sc.categoryMap || {};
   const scName = rawScenarioName || sc.rawScenarioName || sc.scenarioName;
   const row = [runId, revision, scName];
 
@@ -1259,9 +1467,32 @@ function downloadAppendedCsv() {
     }).join(',')
   ).join('\r\n');
 
-  const filename = (elements.appendExportFilename && elements.appendExportFilename.value.trim())
-    || `${(state.method3BaseFilename || 'Results').replace(/\.csv$/i, '')}_updated.csv`;
-  const location = (elements.appendExportLocation && elements.appendExportLocation.value.trim()) || '..\\';
+  const filename = state.method3BaseFilename || 'Results.csv';
+  state.method3BaseCsvRows = combinedRows;
+
+  // Direct overwrite if file handle was captured
+  if (state.method3BaseFileHandle) {
+    state.method3BaseFileHandle.createWritable()
+      .then(async writable => {
+        await writable.write(csvContent);
+        await writable.close();
+        showToast('CSV Overwritten', `Directly overwrote "${filename}" with ${scenariosToAppend.length} appended scenario(s).`, '💾');
+      })
+      .catch(err => {
+        // Fallback to browser download if direct file write fails
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('CSV Saved', `Saved updated ${filename} (${scenariosToAppend.length} scenarios appended).`, '💾');
+      });
+    return;
+  }
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
@@ -1273,7 +1504,7 @@ function downloadAppendedCsv() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  showToast('CSV Saved!', `Appended ${scenariosToAppend.length} scenario(s) to ${filename} (Target Location: ${location}).`, '💾');
+  showToast('CSV Overwritten!', `Overwrote ${filename} with ${scenariosToAppend.length} appended scenario(s).`, '💾');
 }
 
 // =============================================================================
@@ -1315,35 +1546,27 @@ function computeBaselineAverageForGroup(baselines, runId = '', revision = '') {
   if (!baselines || baselines.length === 0) return null;
 
   const count = baselines.length;
-  const categoryMap = {};
 
-  // Collect all category keys across fixed list and template lists
-  const allCatKeys = new Set();
-  FIXED_CATEGORIES.forEach(fc => allCatKeys.add(fc.raw));
-  CSV_ELECS.forEach(c => allCatKeys.add(c));
-  CSV_GASES.forEach(c => allCatKeys.add(c));
+  // 1. Average rawCategoryMap (HTM categories)
+  const rawCategoryMap = {};
+  const allRawKeys = new Set([...CSV_ELECS, ...CSV_GASES]);
   baselines.forEach(b => {
-    Object.keys(b.categoryMap || {}).forEach(k => allCatKeys.add(k));
+    Object.keys(b.rawCategoryMap || {}).forEach(k => allRawKeys.add(k));
   });
 
-  let totalElecKwh = 0;
-  let totalGasTherm = 0;
-
-  allCatKeys.forEach(raw => {
+  allRawKeys.forEach(raw => {
     let sumElecKwh    = 0;
     let sumElecDemW   = 0;
     let sumGasTherm   = 0;
     let sumGasDemBtuh = 0;
-    let isTotal = false;
 
     baselines.forEach(b => {
-      const r = b.categoryMap ? b.categoryMap[raw] : null;
+      const r = (b.rawCategoryMap && b.rawCategoryMap[raw]) || (b.categoryMap && b.categoryMap[raw]);
       if (r) {
         sumElecKwh    += (r.elecKwh || 0);
         sumElecDemW   += (r.elecDemW || 0);
         sumGasTherm   += (r.gasTherm || 0);
         sumGasDemBtuh += (r.gasDemBtuh || 0);
-        if (r.isTotal) isTotal = true;
       }
     });
 
@@ -1356,14 +1579,9 @@ function computeBaselineAverageForGroup(baselines, runId = '', revision = '') {
     const gasKbtu   = avgGasTherm * CONVERSIONS.THERM_TO_KBTU;
     const totalKbtu = elecKbtu + gasKbtu;
 
-    if (!isTotal && FIXED_CATEGORIES.some(fc => fc.raw === raw)) {
-      totalElecKwh  += avgElecKwh;
-      totalGasTherm += avgGasTherm;
-    }
-
-    categoryMap[raw] = {
+    rawCategoryMap[raw] = {
       rawCategory: raw,
-      isTotal,
+      isTotal: false,
       elecKwh:    avgElecKwh,
       elecDemW:   avgElecDemW,
       gasTherm:   avgGasTherm,
@@ -1372,6 +1590,16 @@ function computeBaselineAverageForGroup(baselines, runId = '', revision = '') {
       gasKbtu,
       totalKbtu,
     };
+  });
+
+  // 2. Build the aggregated 11 dashboard compliance categories
+  const categoryMap = buildDashboardCategoryMap(rawCategoryMap);
+
+  let totalElecKwh = 0;
+  let totalGasTherm = 0;
+  Object.values(categoryMap).forEach(c => {
+    totalElecKwh  += c.elecKwh;
+    totalGasTherm += c.gasTherm;
   });
 
   const totalElecKbtu  = totalElecKwh  * CONVERSIONS.KWH_TO_KBTU;
@@ -1390,6 +1618,7 @@ function computeBaselineAverageForGroup(baselines, runId = '', revision = '') {
     isCalculatedAverage: true,
     fileBaseName: `${compositeName}.csv`,
     categoryMap,
+    rawCategoryMap,
     summary: {
       totalElectricity_kWh:  totalElecKwh,
       totalNaturalGas_therm: totalGasTherm,
@@ -1401,6 +1630,7 @@ function computeBaselineAverageForGroup(baselines, runId = '', revision = '') {
     }
   };
 }
+
 
 function loadParsedScenarios(scenarios) {
   // Filter out zb/zp
@@ -2095,11 +2325,14 @@ function buildCsvRowsForExport() {
 
   const rows = [];
 
-  // Header row 1: category names (matching template exactly)
+  // Header row 1: Dashboard category names (Row 1)
   rows.push(CSV_HEADER_ROW_1);
 
-  // Header row 2: units
+  // Header row 2: HTM category names (Row 2)
   rows.push(CSV_HEADER_ROW_2);
+
+  // Header row 3: Units (Row 3)
+  rows.push(CSV_HEADER_ROW_3);
 
   // One data row per scenario
   exportScenarios.forEach(sc => {
@@ -2163,7 +2396,7 @@ async function downloadCSVLog() {
 
   const filename = (elements.csvExportFilename && elements.csvExportFilename.value.trim())
     || getCleanCsvFilename(state.selectedFolderName || 'Energy_Compliance');
-  const dataRowCount = rows.length - 2;
+  const dataRowCount = rows.length - 3;
 
   // --- Path 1: write directly to the picked folder (File System Access API) ---
   if (state.csvExportDirHandle) {
@@ -2414,10 +2647,6 @@ function setupEventListeners() {
   }
   if (elements.csvBrowseFolderBtn) {
     elements.csvBrowseFolderBtn.addEventListener('click', browseFolderForExport);
-  }
-  if (elements.csvExportLocation) {
-    elements.csvExportLocation.addEventListener('click', browseFolderForExport);
-    elements.csvExportLocation.style.cursor = 'pointer';
   }
   elements.downloadChartBtn.addEventListener('click', downloadChartImage);
 }

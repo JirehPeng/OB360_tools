@@ -347,7 +347,7 @@
         <div class="card-header table-card-header">
           <div class="table-header-left">
             <h3 id="table-title">EAp2-4/5 Performance Rating Method Compliance</h3>
-            <span class="table-subtitle">Fixed columns — all 15 end-use categories · Electricity [kWh, W] · Natural Gas [therm, Btu/h] · ap shown first</span>
+            <span class="table-subtitle">Fixed columns — 11 compliance categories · Electricity [kWh, W] · Natural Gas [therm, Btu/h] · ap shown first</span>
           </div>
           <div class="table-actions">
             <button id="copy-excel-btn" class="btn btn-accent btn-highlight" title="Copy formatted table data directly to clipboard">
@@ -385,13 +385,13 @@
             <input type="text" id="csv-export-filename" class="text-input csv-input" value="example_project_folder - Results.csv" />
           </div>
           <div class="csv-field-group">
-            <label for="csv-export-location" class="input-label">Export Location (Parent Folder)</label>
+            <label for="csv-export-location" class="input-label">Export Location</label>
             <div class="csv-location-row">
-              <input type="text" id="csv-export-location" class="text-input csv-input" placeholder="Click Browse… to choose a folder" readonly />
               <button type="button" id="csv-browse-folder-btn" class="btn btn-secondary csv-browse-btn" title="Pick destination folder in file explorer">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 Browse…
               </button>
+              <input type="text" id="csv-export-location" class="text-input csv-input" placeholder="Default: parent folder" readonly />
             </div>
             <span id="csv-location-status" class="csv-location-status"></span>
           </div>
@@ -417,7 +417,7 @@
             Export CSV
           </button>
         </div>
-        <p class="csv-note">Default file name is based on the project folder; default location is the parent folder. Formatted with 2 header rows and 67 columns per scenario row.</p>
+        <p class="csv-note">Default file name is based on the project folder; default location is the parent folder. Formatted with 3 header rows and 67 columns per scenario row.</p>
       </section>
 
       <!-- Append to CSV Log Section (Method 3) -->
@@ -452,21 +452,10 @@
             </div>
           </div>
 
-          <div class="csv-path-config-grid">
-            <div class="csv-field-group">
-              <label for="append-export-filename" class="input-label">Updated File Name</label>
-              <input type="text" id="append-export-filename" class="text-input csv-input" value="Results_Updated.csv" />
-            </div>
-            <div class="csv-field-group">
-              <label for="append-export-location" class="input-label">Save Location (Parent Folder)</label>
-              <input type="text" id="append-export-location" class="text-input csv-input" placeholder="e.g. C:\Models\Project" />
-            </div>
-          </div>
-
           <div class="append-submit-row">
             <button type="button" id="append-download-csv-btn" class="btn btn-primary btn-lg">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-              Append Selected Scenarios to CSV
+              Append Selected Scenarios to CSV (Overwrite)
             </button>
           </div>
         </div>
