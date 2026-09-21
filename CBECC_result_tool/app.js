@@ -454,7 +454,8 @@ const state = {
   chartInstance: null,
   isServerOnline: false,
   csvExportDirHandle: null,   // FileSystemDirectoryHandle from showDirectoryPicker()
-  method3BaseFileHandle: null,// FileSystemFileHandle for base CSV in Method 3
+  method3BaseFileHandle: null,// FileSystemFileHandle for the output CSV in Method 3
+  method3BaseCsvFileHandle: null, // FileSystemFileHandle for the loaded base CSV (used as startIn for save dialog)
 };
 
 // =============================================================================
@@ -1433,7 +1434,7 @@ function renderAppendChecklist(scenarios, runId, revision) {
   });
 }
 
-function downloadAppendedCsv() {
+async function downloadAppendedCsv() {
   if (!state.method3BaseCsvRows || !state.method3ExtractedRunScenarios) {
     showToast('No Data', 'Please load dashboard with base CSV and new run first.', '⚠️');
     return;
@@ -1448,10 +1449,8 @@ function downloadAppendedCsv() {
   const selectedNames = Array.from(checkboxes).map(cb => cb.value);
   const scenariosToAppend = state.method3ExtractedRunScenarios.filter(sc => selectedNames.includes(sc.scenarioName));
 
-  // Clone base CSV rows
+  // Clone base CSV rows and append selected scenarios
   const combinedRows = state.method3BaseCsvRows.map(r => [...r]);
-
-  // Append each chosen scenario as a 67-column row
   scenariosToAppend.forEach(sc => {
     const rawName = sc.rawScenarioName || sc.scenarioName;
     const newRow = formatScenarioCsvRow(sc, sc.runId, sc.revision, rawName);
@@ -1468,32 +1467,47 @@ function downloadAppendedCsv() {
   ).join('\r\n');
 
   const filename = state.method3BaseFilename || 'Results.csv';
-  state.method3BaseCsvRows = combinedRows;
 
-  // Direct overwrite if file handle was captured
+  // --- Path 1: Direct overwrite via pre-captured file handle (future use) ---
   if (state.method3BaseFileHandle) {
-    state.method3BaseFileHandle.createWritable()
-      .then(async writable => {
-        await writable.write(csvContent);
-        await writable.close();
-        showToast('CSV Overwritten', `Directly overwrote "${filename}" with ${scenariosToAppend.length} appended scenario(s).`, '💾');
-      })
-      .catch(err => {
-        // Fallback to browser download if direct file write fails
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('CSV Saved', `Saved updated ${filename} (${scenariosToAppend.length} scenarios appended).`, '💾');
-      });
+    try {
+      const writable = await state.method3BaseFileHandle.createWritable();
+      await writable.write(csvContent);
+      await writable.close();
+      state.method3BaseCsvRows = combinedRows;
+      showToast('CSV Overwritten', `Directly overwrote "${filename}" with ${scenariosToAppend.length} appended scenario(s).`, '💾');
+    } catch (err) {
+      showToast('Write Failed', `Could not overwrite file: ${err.message}`, '⚠️');
+    }
     return;
   }
 
+  // --- Path 2: showSaveFilePicker — lets user navigate to original file and overwrite it ---
+  if (window.showSaveFilePicker) {
+    try {
+      const fileHandle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{ description: 'CSV File', accept: { 'text/csv': ['.csv'] } }],
+        // Default the dialog to the folder where the base CSV was loaded from
+        ...(state.method3BaseCsvFileHandle ? { startIn: state.method3BaseCsvFileHandle } : {}),
+      });
+      const writable = await fileHandle.createWritable();
+      await writable.write(csvContent);
+      await writable.close();
+      // Cache handle for future saves in this session
+      state.method3BaseFileHandle = fileHandle;
+      state.method3BaseCsvRows = combinedRows;
+      showToast('CSV Overwritten', `Saved "${fileHandle.name}" with ${scenariosToAppend.length} appended scenario(s).`, '💾');
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        showToast('Save Failed', `Could not save file: ${err.message}`, '⚠️');
+      }
+    }
+    return;
+  }
+
+  // --- Path 3: Fallback — standard browser download (creates new file in Downloads) ---
+  state.method3BaseCsvRows = combinedRows;
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -1504,7 +1518,7 @@ function downloadAppendedCsv() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  showToast('CSV Overwritten!', `Overwrote ${filename} with ${scenariosToAppend.length} appended scenario(s).`, '💾');
+  showToast('CSV Downloaded', `Saved "${filename}" (${scenariosToAppend.length} scenario(s) appended). Check your Downloads folder.`, '💾');
 }
 
 // =============================================================================
@@ -2518,7 +2532,28 @@ function setupEventListeners() {
 
   // Mode 3: Append Model Run to CSV
   if (elements.appendBrowseCsvBtn && elements.appendCsvInput) {
-    elements.appendBrowseCsvBtn.addEventListener('click', () => elements.appendCsvInput.click());
+    elements.appendBrowseCsvBtn.addEventListener('click', async () => {
+      // Use showOpenFilePicker when available so we can capture the FileSystemFileHandle
+      // (needed to default the save dialog to the same folder later)
+      if (window.showOpenFilePicker) {
+        try {
+          const [fileHandle] = await window.showOpenFilePicker({
+            types: [{ description: 'CSV File', accept: { 'text/csv': ['.csv'], 'application/vnd.ms-excel': ['.csv'] } }],
+            multiple: false,
+          });
+          state.method3BaseCsvFileHandle = fileHandle;
+          state.method3BaseFileHandle = null; // reset output handle when a new base CSV is loaded
+          const file = await fileHandle.getFile();
+          handleAppendBaseCsv(file);
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            showToast('Error', 'Could not open file: ' + err.message, '❌');
+          }
+        }
+      } else {
+        elements.appendCsvInput.click();
+      }
+    });
     elements.appendCsvInput.addEventListener('change', e => {
       if (e.target.files.length > 0) handleAppendBaseCsv(e.target.files[0]);
     });
